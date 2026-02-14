@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Service Management System for Bharath Cycle Hub - Mobile First PWA",
   "scripts": {
-    "start": "npx serve app",
-    "dev": "npx serve app"
+    "start": "npx serve prototype-v2",
+    "dev": "npx serve prototype-v2"
   },
   "author": "Google Deepmind Agent",
   "license": "ISC"
