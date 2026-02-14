@@ -1,0 +1,24 @@
+{
+  "name": "Bharath Cycle Hub - Service Manager",
+  "short_name": "BCH Service",
+  "description": "Service Management System for Bharath Cycle Hub",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "business",
+    "productivity"
+  ],
+  "lang": "en",
+  "scope": "."
+}

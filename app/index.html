@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<title>BCH Service</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- OFFLINE BANNER -->
+<div class="offline-banner" id="offlineBanner">&#9888; Offline &mdash; changes sync when connected</div>
+
+<!-- HEADER -->
+<header class="header" id="appHeader">
+  <div class="header-left">
+    <div class="header-title">Bharath Cycle Hub</div>
+    <div class="header-subtitle" id="roleSubtitle">Support Staff</div>
+  </div>
+  <div class="header-actions">
+    <button class="header-btn" id="notifBtn" title="Notifications">
+      &#128276;<span class="notif-badge" id="notifBadge">3</span>
+    </button>
+    <button class="profile-icon" id="profileBtn" title="Switch Role">S</button>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tabs" id="tabBar"></div>
+
+<!-- ===================== SCREENS ===================== -->
+<main id="screenContainer">
+
+  <!-- ====== SUPPORT: CHECK IN ====== -->
+  <div class="screen" id="screen-checkin">
+    <h3 style="font-size:1rem;margin-bottom:14px">New Service Check-In</h3>
+    <div class="photo-placeholder" id="checkinPhoto" onclick="simulatePhoto(this)">
+      <span style="font-size:1.5rem">&#128247;</span>
+      Tap to take bike photo
+    </div>
+    <div class="form-group">
+      <label class="form-label">Customer Name</label>
+      <input class="form-input" id="ciName" placeholder="Enter name" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Phone Number</label>
+      <input class="form-input" id="ciPhone" type="tel" placeholder="+91-XXXXXXXXXX" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Bike Model</label>
+      <input class="form-input" id="ciBike" placeholder="e.g. Hero Splendor Plus" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Service Type</label>
+      <div class="service-type-grid" id="ciServiceType">
+        <button class="service-type-btn" data-type="regular" onclick="selectServiceType(this)">
+          <span class="st-icon">&#128295;</span>
+          <span class="st-label">Regular</span>
+          <span class="st-price">&#8377;500</span>
+        </button>
+        <button class="service-type-btn" data-type="repair" onclick="selectServiceType(this)">
+          <span class="st-icon">&#9889;</span>
+          <span class="st-label">Repair</span>
+          <span class="st-price">&#8377;200+</span>
+        </button>
+        <button class="service-type-btn" data-type="makeover" onclick="selectServiceType(this)">
+          <span class="st-icon">&#129529;</span>
+          <span class="st-label">Makeover</span>
+          <span class="st-price">&#8377;2,459</span>
+        </button>
+        <button class="service-type-btn" data-type="insurance" onclick="selectServiceType(this)">
+          <span class="st-icon">&#9989;</span>
+          <span class="st-label">Insurance</span>
+          <span class="st-price">Free</span>
+        </button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Issue / Notes</label>
+      <textarea class="form-input" id="ciIssue" rows="2" placeholder="Describe the issue..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Priority</label>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-outline priority-btn" data-priority="standard" onclick="selectPriority(this)" style="flex:1;border-color:var(--orange);color:var(--orange)">Standard</button>
+        <button class="btn btn-sm btn-outline priority-btn" data-priority="urgent" onclick="selectPriority(this)" style="flex:1;border-color:var(--red);color:var(--red)">&#128680; Urgent</button>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block mt-3" onclick="handleCheckIn()">&#10004; CHECK IN BIKE</button>
+  </div>
+
+  <!-- ====== SUPPORT: QUEUE ====== -->
+  <div class="screen" id="screen-queue">
+    <div class="filters" id="queueFilters"></div>
+    <div id="queueList"></div>
+    <div class="swipe-hint">Swipe cards for quick actions</div>
+  </div>
+
+  <!-- ====== SUPPORT: PICKUP & PAYMENT ====== -->
+  <div class="screen" id="screen-pickup">
+    <div id="pickupList"></div>
+  </div>
+
+  <!-- ====== SUPPORT: PARTS ====== -->
+  <div class="screen" id="screen-parts">
+    <div class="section-title">Parts Requests</div>
+    <div id="partsRequestList"></div>
+    <div class="divider"></div>
+    <div class="section-title">Inventory (Low Stock &#9888;)</div>
+    <div id="partsInventory"></div>
+  </div>
+
+  <!-- ====== MECHANIC: TODAY ====== -->
+  <div class="screen" id="screen-today">
+    <div id="mechProgress"></div>
+    <div id="mechTodayList"></div>
+    <div class="swipe-hint">Tap START to begin working</div>
+  </div>
+
+  <!-- ====== MECHANIC: ACTIVE JOB ====== -->
+  <div class="screen" id="screen-active">
+    <div id="activeJobContent">
+      <div class="empty-state">
+        <div class="empty-icon">&#128736;</div>
+        <p>No active job. Start one from Today tab.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== MECHANIC: TOMORROW ====== -->
+  <div class="screen" id="screen-tomorrow">
+    <h3 style="font-size:1rem;margin-bottom:14px">Tomorrow's Schedule</h3>
+    <div id="tomorrowList">
+      <div class="empty-state">
+        <div class="empty-icon">&#128197;</div>
+        <p>No jobs scheduled for tomorrow yet.</p>
+        <div class="card mt-3" style="text-align:left">
+          <div class="section-title">Parts Prep Checklist</div>
+          <div class="parts-item"><div class="parts-item-info"><div class="parts-item-name">&#9744; Check oil filter stock</div></div></div>
+          <div class="parts-item"><div class="parts-item-info"><div class="parts-item-name">&#9744; Prepare brake pads</div></div></div>
+          <div class="parts-item"><div class="parts-item-info"><div class="parts-item-name">&#9744; Verify chain lube supply</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== MECHANIC: MY STATS ====== -->
+  <div class="screen" id="screen-mystats">
+    <div id="mechStatsContent"></div>
+  </div>
+
+  <!-- ====== OWNER: DASHBOARD ====== -->
+  <div class="screen" id="screen-dashboard">
+    <div id="ownerDashContent"></div>
+  </div>
+
+  <!-- ====== OWNER: ASSIGN ====== -->
+  <div class="screen" id="screen-assign">
+    <div class="section-title">Today's Assignments</div>
+    <div id="assignList"></div>
+  </div>
+
+  <!-- ====== OWNER: TEAM ====== -->
+  <div class="screen" id="screen-team">
+    <div id="teamContent"></div>
+  </div>
+
+  <!-- ====== OWNER: CUSTOMERS ====== -->
+  <div class="screen" id="screen-customers">
+    <div id="customerList"></div>
+  </div>
+
+</main>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav" id="bottomNav"></nav>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- REASSIGN MODAL -->
+<div class="modal-overlay" id="reassignModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h3>Reassign Job</h3>
+    <div id="reassignJobInfo"></div>
+    <div id="reassignMechList"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-outline" style="flex:1" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" id="reassignConfirmBtn" onclick="confirmReassign()">Reassign</button>
+    </div>
+  </div>
+</div>
+
+<!-- PARTS MODAL -->
+<div class="modal-overlay" id="partsModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h3>Add Part Used</h3>
+    <div class="form-group">
+      <label class="form-label">Part Name</label>
+      <select class="form-input" id="partSelect"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Quantity</label>
+      <input class="form-input" id="partQty" type="number" value="1" min="1">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-outline" style="flex:1" onclick="closePartsModal()">Cancel</button>
+      <button class="btn btn-success" style="flex:1" onclick="confirmAddPart()">Add Part</button>
+    </div>
+  </div>
+</div>
+
+<!-- QC MODAL -->
+<div class="modal-overlay" id="qcModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h3>Quality Check</h3>
+    <div id="qcJobInfo"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-danger" style="flex:1" onclick="handleQcFail()">&#10060; Fail</button>
+      <button class="btn btn-success" style="flex:1" onclick="handleQcPass()">&#9989; Pass</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/db.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
