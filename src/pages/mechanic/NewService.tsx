@@ -1,11 +1,17 @@
-import { useState, useEffect, useRef, forwardRef, type RefObject } from 'react';
+import { useState, useEffect, useRef, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import Button from '../../components/ui/Button';
 import PhotoCapture from '../../components/ui/PhotoCapture';
 import { photoService } from '../../services/photoService';
 import VoiceInput from '../../components/ui/VoiceInput';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown, Plus, Minus, Trash2 } from 'lucide-react';
+
+interface PartLine {
+  name: string;
+  qty: number;
+  price: number;
+}
 
 export default function NewService() {
   const { createJob, mechanics, showToast, serviceList, partsList, serviceItems, partsItems } = useApp();
@@ -20,18 +26,15 @@ export default function NewService() {
     issue: '',
     priority: 'standard',
   });
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [selectedParts, setSelectedParts] = useState<string[]>([]);
-  const [servicesOpen, setServicesOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [partLines, setPartLines] = useState<PartLine[]>([]);
   const [partsOpen, setPartsOpen] = useState(false);
 
-  const servicesRef = useRef<HTMLDivElement>(null);
   const partsRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdowns on outside click
+  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (servicesRef.current && !servicesRef.current.contains(e.target as Node)) setServicesOpen(false);
       if (partsRef.current && !partsRef.current.contains(e.target as Node)) setPartsOpen(false);
     };
     document.addEventListener('mousedown', handler);
@@ -40,31 +43,37 @@ export default function NewService() {
 
   const update = (key: string, val: string) => setForm(prev => ({ ...prev, [key]: val }));
 
-  const toggleService = (svc: string) => {
-    setSelectedServices(prev =>
-      prev.includes(svc) ? prev.filter(s => s !== svc) : [...prev, svc]
+  const addPart = (partName: string) => {
+    setPartLines(prev => {
+      const existing = prev.find(p => p.name === partName);
+      if (existing) {
+        return prev.map(p => p.name === partName ? { ...p, qty: p.qty + 1 } : p);
+      }
+      const price = partsItems?.find(i => i.name === partName)?.price || 0;
+      return [...prev, { name: partName, qty: 1, price }];
+    });
+  };
+
+  const updatePartQty = (name: string, delta: number) => {
+    setPartLines(prev =>
+      prev.map(p => p.name === name ? { ...p, qty: p.qty + delta } : p).filter(p => p.qty > 0)
     );
   };
 
-  const togglePart = (part: string) => {
-    setSelectedParts(prev =>
-      prev.includes(part) ? prev.filter(p => p !== part) : [...prev, part]
-    );
+  const removePart = (name: string) => {
+    setPartLines(prev => prev.filter(p => p.name !== name));
   };
 
-  // Auto-calculate total charges from selected services + parts prices
+  // Auto-calculate total from selected service + parts
+  const servicePrice = selectedService
+    ? (serviceItems?.find(i => i.name === selectedService)?.price || 0)
+    : 0;
+  const partsTotal = partLines.reduce((sum, p) => sum + p.price * p.qty, 0);
+
   useEffect(() => {
-    const svcTotal = selectedServices.reduce((sum, name) => {
-      const item = serviceItems?.find(i => i.name === name);
-      return sum + (item?.price || 0);
-    }, 0);
-    const partsTotal = selectedParts.reduce((sum, name) => {
-      const item = partsItems?.find(i => i.name === name);
-      return sum + (item?.price || 0);
-    }, 0);
-    const total = svcTotal + partsTotal;
+    const total = servicePrice + partsTotal;
     setForm(prev => ({ ...prev, totalCharge: total > 0 ? String(total) : '' }));
-  }, [selectedServices, selectedParts, serviceItems, partsItems]);
+  }, [servicePrice, partsTotal]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -76,14 +85,14 @@ export default function NewService() {
 
     setIsSubmitting(true);
     try {
+      const flatParts = partLines.flatMap(p => Array(p.qty).fill(p.name));
       const jobData = {
         ...form,
-        services: selectedServices,
-        checkinParts: selectedParts,
+        services: selectedService ? [selectedService] : [],
+        checkinParts: flatParts,
         laborCharge: form.totalCharge ? Number(form.totalCharge) : undefined,
       };
       const job = await createJob(jobData);
-      // Upload photo & audio in background (don't block check-in)
       if (job?.id) {
         if (photoFile) photoService.uploadPhoto(job.id, photoFile, 'before').catch(() => {});
         if (audioFile) photoService.uploadAudio(job.id, audioFile).catch(() => {});
@@ -91,8 +100,8 @@ export default function NewService() {
       const mech = job ? mechanics.find(m => m.id === job.mechanicId) : null;
       showToast(`Checked in! ${mech?.name ? `Assigned to ${mech.name}` : 'Added to queue'}`, 'success');
       setForm({ customerName: '', customerPhone: '', bike: '', serviceType: 'regular', totalCharge: '', issue: '', priority: 'standard' });
-      setSelectedServices([]);
-      setSelectedParts([]);
+      setSelectedService(null);
+      setPartLines([]);
       setPhotoFile(null);
       setAudioFile(null);
       navigate('/mechanic/today');
@@ -109,10 +118,8 @@ export default function NewService() {
     <div className="space-y-4">
       <h3 className="text-base font-bold">New Service Check-In</h3>
 
-      {/* Photo */}
       <PhotoCapture label="Tap to take bike photo" onCapture={setPhotoFile} />
 
-      {/* Form Fields */}
       <FormField label="Customer Name">
         <input value={form.customerName} onChange={e => update('customerName', e.target.value)}
           placeholder="Enter name" className="form-input" />
@@ -129,35 +136,94 @@ export default function NewService() {
           placeholder="e.g. Hero Splendor Plus" className="form-input" />
       </FormField>
 
-      {/* Service Type — multi-select dropdown */}
+      {/* Service Type — single select inline buttons */}
       <FormField label="Service Type">
-        <MultiSelectDropdown
-          ref={servicesRef}
-          isOpen={servicesOpen}
-          onToggle={() => { setServicesOpen(!servicesOpen); setPartsOpen(false); }}
-          options={serviceList}
-          optionItems={serviceItems}
-          selected={selectedServices}
-          onToggleOption={toggleService}
-          placeholder="Select services..."
-        />
+        <div className="flex flex-wrap gap-2">
+          {serviceList.length > 0 ? (
+            serviceList.map(svc => {
+              const price = serviceItems?.find(i => i.name === svc)?.price || 0;
+              const isActive = selectedService === svc;
+              return (
+                <button
+                  key={svc}
+                  type="button"
+                  onClick={() => setSelectedService(isActive ? null : svc)}
+                  className={`px-3 py-2 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer
+                    ${isActive
+                      ? 'border-blue-primary bg-blue-light text-blue-primary'
+                      : 'border-grey-border text-grey-muted hover:bg-grey-bg'}`}
+                >
+                  {svc}
+                  {price > 0 && <span className="text-[11px] ml-1 opacity-70">₹{price}</span>}
+                </button>
+              );
+            })
+          ) : (
+            <span className="text-sm text-grey-muted">No services available</span>
+          )}
+        </div>
       </FormField>
 
-      {/* Parts — multi-select dropdown */}
+      {/* Parts — dropdown with search + quantity */}
       <FormField label="Parts">
-        <MultiSelectDropdown
+        <PartsDropdown
           ref={partsRef}
           isOpen={partsOpen}
-          onToggle={() => { setPartsOpen(!partsOpen); setServicesOpen(false); }}
+          onToggle={() => setPartsOpen(!partsOpen)}
           options={partsList}
           optionItems={partsItems}
-          selected={selectedParts}
-          onToggleOption={togglePart}
+          partLines={partLines}
+          onAddPart={addPart}
           placeholder="Select parts..."
         />
       </FormField>
 
-      {/* Labor Charge */}
+      {/* Parts Bill */}
+      {partLines.length > 0 && (
+        <div className="border border-grey-border rounded-xl overflow-hidden">
+          <div className="bg-grey-bg px-3 py-2 border-b border-grey-border">
+            <span className="text-xs font-bold text-grey-muted uppercase tracking-wide">Parts Bill</span>
+          </div>
+          <div className="divide-y divide-grey-border/50">
+            {partLines.map(p => (
+              <div key={p.name} className="flex items-center gap-2 px-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-semibold block truncate">{p.name}</span>
+                  <span className="text-[11px] text-grey-muted">₹{p.price} each</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button type="button" onClick={() => updatePartQty(p.name, -1)}
+                    className="w-7 h-7 rounded-lg bg-grey-bg flex items-center justify-center text-grey-muted hover:bg-grey-border cursor-pointer transition-colors">
+                    <Minus size={14} />
+                  </button>
+                  <span className="w-6 text-center text-sm font-bold">{p.qty}</span>
+                  <button type="button" onClick={() => updatePartQty(p.name, 1)}
+                    className="w-7 h-7 rounded-lg bg-grey-bg flex items-center justify-center text-grey-muted hover:bg-grey-border cursor-pointer transition-colors">
+                    <Plus size={14} />
+                  </button>
+                </div>
+                <span className="text-sm font-bold w-16 text-right">₹{p.price * p.qty}</span>
+                <button type="button" onClick={() => removePart(p.name)}
+                  className="p-1 text-red-urgent/60 hover:text-red-urgent cursor-pointer">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center justify-between px-3 py-2.5 bg-blue-light/50 border-t border-grey-border">
+            <span className="text-sm font-bold text-grey-text">
+              {selectedService && servicePrice > 0 && (
+                <span className="text-grey-muted font-semibold">
+                  Service ₹{servicePrice} + Parts ₹{partsTotal} ={' '}
+                </span>
+              )}
+              Total
+            </span>
+            <span className="text-base font-bold text-blue-primary">₹{servicePrice + partsTotal}</span>
+          </div>
+        </div>
+      )}
+
       <FormField label="Labor Charge (₹)">
         <input type="number" inputMode="numeric" min="0"
           value={form.totalCharge}
@@ -166,7 +232,6 @@ export default function NewService() {
           className="form-input" />
       </FormField>
 
-      {/* Issue */}
       <FormField label="Issue / Notes">
         <textarea value={form.issue} onChange={e => update('issue', e.target.value)}
           rows={2} placeholder="Describe the issue..." className="form-input resize-none" />
@@ -187,7 +252,6 @@ export default function NewService() {
         )}
       </FormField>
 
-      {/* Priority */}
       <FormField label="Priority">
         <div className="flex gap-2">
           <button onClick={() => update('priority', 'standard')}
@@ -202,40 +266,41 @@ export default function NewService() {
               ${form.priority === 'urgent'
                 ? 'border-red-urgent bg-red-light text-red-urgent'
                 : 'border-grey-border text-grey-muted'}`}>
-            🚨 Urgent
+            Urgent
           </button>
         </div>
       </FormField>
 
       <Button size="lg" block onClick={handleSubmit} disabled={isSubmitting}>
-        {isSubmitting ? 'Checking in...' : '✔ CHECK IN BIKE'}
+        {isSubmitting ? 'Checking in...' : 'CHECK IN BIKE'}
       </Button>
     </div>
   );
 }
 
-// --- Multi-select dropdown component (same as CheckIn) ---
+// --- Parts dropdown with search (tap to add, supports qty) ---
 
 interface OptionItem {
   name: string;
   price: number;
 }
 
-interface MultiSelectDropdownProps {
+interface PartsDropdownProps {
   isOpen: boolean;
   onToggle: () => void;
   options: string[];
   optionItems?: OptionItem[];
-  selected: string[];
-  onToggleOption: (opt: string) => void;
+  partLines: PartLine[];
+  onAddPart: (name: string) => void;
   placeholder: string;
 }
 
-const MultiSelectDropdown = forwardRef<HTMLDivElement, MultiSelectDropdownProps>(
-  ({ isOpen, onToggle, options, optionItems, selected, onToggleOption, placeholder }, ref) => {
+const PartsDropdown = forwardRef<HTMLDivElement, PartsDropdownProps>(
+  ({ isOpen, onToggle, options, optionItems, partLines, onAddPart, placeholder }, ref) => {
     const [search, setSearch] = useState('');
     const searchRef = useRef<HTMLInputElement>(null);
     const getPrice = (opt: string) => optionItems?.find(i => i.name === opt)?.price || 0;
+    const getQty = (opt: string) => partLines.find(p => p.name === opt)?.qty || 0;
 
     const filtered = search.trim()
       ? options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()))
@@ -246,71 +311,57 @@ const MultiSelectDropdown = forwardRef<HTMLDivElement, MultiSelectDropdownProps>
       if (!isOpen) setSearch('');
     }, [isOpen]);
 
+    const totalParts = partLines.reduce((s, p) => s + p.qty, 0);
+
     return (
       <div ref={ref} className="relative">
-        {/* Trigger */}
         <button
           type="button"
           onClick={onToggle}
           className="w-full flex items-center justify-between border border-grey-border rounded-xl px-3 py-2.5 text-sm bg-white cursor-pointer hover:bg-grey-bg transition-colors"
         >
-          <span className={selected.length > 0 ? 'text-grey-text' : 'text-grey-light'}>
-            {selected.length > 0 ? `${selected.length} selected` : placeholder}
+          <span className={totalParts > 0 ? 'text-grey-text' : 'text-grey-light'}>
+            {totalParts > 0 ? `${totalParts} part${totalParts > 1 ? 's' : ''} added` : placeholder}
           </span>
           <ChevronDown size={16} className={`text-grey-muted transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </button>
 
-        {/* Selected chips */}
-        {selected.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {selected.map(item => (
-              <span key={item} className="inline-flex items-center gap-1 bg-blue-light text-blue-primary text-xs font-semibold px-2 py-1 rounded-lg">
-                {item}
-                <button type="button" onClick={() => onToggleOption(item)} className="cursor-pointer hover:text-red-urgent">
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Dropdown */}
         {isOpen && (
           <div className="absolute z-50 mt-1 w-full bg-white border border-grey-border rounded-xl shadow-lg max-h-64 flex flex-col">
-            {/* Search input */}
             <div className="sticky top-0 bg-white border-b border-grey-border p-2">
               <input
                 ref={searchRef}
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search..."
+                placeholder="Search parts..."
                 className="w-full px-2.5 py-1.5 text-sm border border-grey-border rounded-lg outline-none focus:border-blue-primary"
               />
             </div>
             <div className="overflow-y-auto flex-1">
               {filtered.length === 0 ? (
                 <div className="px-3 py-4 text-sm text-grey-muted text-center">
-                  {options.length === 0 ? 'No options available yet' : 'No matches found'}
+                  {options.length === 0 ? 'No parts available yet' : 'No matches found'}
                 </div>
               ) : (
                 filtered.map(opt => {
-                  const isSelected = selected.includes(opt);
+                  const qty = getQty(opt);
                   return (
                     <button
                       key={opt}
                       type="button"
-                      onClick={() => onToggleOption(opt)}
-                      className={`w-full text-left px-3 py-2.5 text-sm cursor-pointer transition-colors flex items-center gap-2
-                        ${isSelected ? 'bg-blue-light text-blue-primary font-semibold' : 'hover:bg-grey-bg'}`}
+                      onClick={() => onAddPart(opt)}
+                      className="w-full text-left px-3 py-2.5 text-sm cursor-pointer transition-colors flex items-center gap-2 hover:bg-grey-bg active:bg-blue-light"
                     >
-                      <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0
-                        ${isSelected ? 'border-blue-primary bg-blue-primary' : 'border-grey-border'}`}>
-                        {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
-                      </span>
+                      <Plus size={14} className="text-blue-primary shrink-0" />
                       <span className="flex-1">{opt}</span>
+                      {qty > 0 && (
+                        <span className="text-[11px] font-bold text-blue-primary bg-blue-light px-1.5 py-0.5 rounded">
+                          x{qty}
+                        </span>
+                      )}
                       {getPrice(opt) > 0 && (
-                        <span className="text-xs text-grey-muted ml-1">₹{getPrice(opt)}</span>
+                        <span className="text-xs text-grey-muted">₹{getPrice(opt)}</span>
                       )}
                     </button>
                   );

@@ -1,14 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { SERVICE_TYPES } from '../../lib/constants';
 import { config } from '../../lib/config';
 import { customerService } from '../../services/customerService';
 import { bikeService } from '../../services/bikeService';
+import { photoService } from '../../services/photoService';
 import type { Bike } from '../../types/bike';
 import Button from '../../components/ui/Button';
+import PhotoCapture from '../../components/ui/PhotoCapture';
 import VoiceInput from '../../components/ui/VoiceInput';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown, X, Plus, Minus, Trash2 } from 'lucide-react';
+
+interface PartLine {
+  name: string;
+  qty: number;
+  price: number;
+}
 
 export default function CheckIn() {
   const { createJob, mechanics, showToast, serviceList, partsList, serviceItems, partsItems } = useApp();
@@ -25,13 +32,12 @@ export default function CheckIn() {
     issue: '',
     priority: 'standard',
   });
-  const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [selectedParts, setSelectedParts] = useState<string[]>([]);
-  const [servicesOpen, setServicesOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<string | null>(null);
+  const [partLines, setPartLines] = useState<PartLine[]>([]);
   const [partsOpen, setPartsOpen] = useState(false);
-  const [photoTaken, setPhotoTaken] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   // Customer lookup state
   const [customerBikes, setCustomerBikes] = useState<Bike[]>([]);
@@ -39,12 +45,10 @@ export default function CheckIn() {
   const [customerFound, setCustomerFound] = useState(false);
   const lookupTimeout = useRef<ReturnType<typeof setTimeout>>(null);
 
-  // Close dropdowns on outside click
-  const servicesRef = useRef<HTMLDivElement>(null);
+  // Close dropdown on outside click
   const partsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (servicesRef.current && !servicesRef.current.contains(e.target as Node)) setServicesOpen(false);
       if (partsRef.current && !partsRef.current.contains(e.target as Node)) setPartsOpen(false);
     };
     document.addEventListener('mousedown', handler);
@@ -55,31 +59,40 @@ export default function CheckIn() {
     setForm(prev => ({ ...prev, [key]: val }));
   };
 
-  const toggleService = (svc: string) => {
-    setSelectedServices(prev =>
-      prev.includes(svc) ? prev.filter(s => s !== svc) : [...prev, svc]
-    );
+  // Add part or increment qty if already in list
+  const addPart = (partName: string) => {
+    setPartLines(prev => {
+      const existing = prev.find(p => p.name === partName);
+      if (existing) {
+        return prev.map(p => p.name === partName ? { ...p, qty: p.qty + 1 } : p);
+      }
+      const price = partsItems?.find(i => i.name === partName)?.price || 0;
+      return [...prev, { name: partName, qty: 1, price }];
+    });
   };
 
-  const togglePart = (part: string) => {
-    setSelectedParts(prev =>
-      prev.includes(part) ? prev.filter(p => p !== part) : [...prev, part]
-    );
+  const updatePartQty = (name: string, delta: number) => {
+    setPartLines(prev => {
+      return prev
+        .map(p => p.name === name ? { ...p, qty: p.qty + delta } : p)
+        .filter(p => p.qty > 0);
+    });
   };
 
-  // Auto-calculate total charges from selected services + parts prices
+  const removePart = (name: string) => {
+    setPartLines(prev => prev.filter(p => p.name !== name));
+  };
+
+  // Auto-calculate total from selected service + parts
+  const servicePrice = selectedService
+    ? (serviceItems?.find(i => i.name === selectedService)?.price || 0)
+    : 0;
+  const partsTotal = partLines.reduce((sum, p) => sum + p.price * p.qty, 0);
+
   useEffect(() => {
-    const svcTotal = selectedServices.reduce((sum, name) => {
-      const item = serviceItems?.find(i => i.name === name);
-      return sum + (item?.price || 0);
-    }, 0);
-    const partsTotal = selectedParts.reduce((sum, name) => {
-      const item = partsItems?.find(i => i.name === name);
-      return sum + (item?.price || 0);
-    }, 0);
-    const total = svcTotal + partsTotal;
+    const total = servicePrice + partsTotal;
     setForm(prev => ({ ...prev, totalCharge: total > 0 ? String(total) : '' }));
-  }, [selectedServices, selectedParts, serviceItems, partsItems]);
+  }, [servicePrice, partsTotal]);
 
   // Phone number debounced lookup
   useEffect(() => {
@@ -87,7 +100,6 @@ export default function CheckIn() {
     if (!config.useSupabase) return;
     const phone = form.customerPhone.trim();
 
-    // Reset if phone cleared or too short
     if (phone.length < 10) {
       setCustomerBikes([]);
       setCustomerFound(false);
@@ -110,7 +122,6 @@ export default function CheckIn() {
             customerName: prev.customerName || customer.name,
             customerId: customer.id,
           }));
-          // Load this customer's bikes
           const bikes = await bikeService.getByCustomerId(customer.id);
           if (cancelled) return;
           setCustomerBikes(bikes);
@@ -120,7 +131,7 @@ export default function CheckIn() {
           setForm(prev => ({ ...prev, customerId: '', bikeId: '' }));
         }
       } catch {
-        // Lookup failed — not critical, staff can type manually
+        // Lookup failed — not critical
       } finally {
         if (!cancelled) setIsLookingUp(false);
       }
@@ -146,21 +157,28 @@ export default function CheckIn() {
 
     setIsSubmitting(true);
     try {
+      // Flatten part lines to string array (repeat name by qty for backend compatibility)
+      const flatParts = partLines.flatMap(p => Array(p.qty).fill(p.name));
       const jobData = {
         ...form,
-        services: selectedServices,
-        checkinParts: selectedParts,
+        services: selectedService ? [selectedService] : [],
+        checkinParts: flatParts,
         laborCharge: form.totalCharge ? Number(form.totalCharge) : undefined,
         bikeId: form.bikeId || undefined,
         customerId: form.customerId || undefined,
       };
       const job = await createJob(jobData);
-      const mech = mechanics.find(m => m.id === job.mechanicId);
+      // Upload photo & audio in background
+      if (job?.id) {
+        if (photoFile) photoService.uploadPhoto(job.id, photoFile, 'before').catch(() => {});
+        if (audioFile) photoService.uploadAudio(job.id, audioFile).catch(() => {});
+      }
+      const mech = job ? mechanics.find(m => m.id === job.mechanicId) : null;
       showToast(`Checked in! ${mech?.name ? `Assigned to ${mech.name}` : 'Added to queue'}`, 'success');
       setForm({ customerName: '', customerPhone: '', customerId: '', bike: '', bikeId: '', serviceType: 'regular', totalCharge: '', issue: '', priority: 'standard' });
-      setSelectedServices([]);
-      setSelectedParts([]);
-      setPhotoTaken(false);
+      setSelectedService(null);
+      setPartLines([]);
+      setPhotoFile(null);
       setAudioFile(null);
       setCustomerBikes([]);
       setCustomerFound(false);
@@ -178,21 +196,10 @@ export default function CheckIn() {
     <div className="space-y-4">
       <h3 className="text-base font-bold">New Service Check-In</h3>
 
-      {/* Photo */}
-      <div
-        onClick={() => setPhotoTaken(true)}
-        className={`h-28 rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-colors
-          ${photoTaken
-            ? 'border-2 border-green-success bg-green-light'
-            : 'border-2 border-dashed border-grey-border bg-grey-bg hover:bg-grey-border/30'}`}
-      >
-        <span className="text-3xl mb-1">📷</span>
-        <span className={`text-sm font-semibold ${photoTaken ? 'text-green-success' : 'text-grey-muted'}`}>
-          {photoTaken ? 'Photo captured!' : 'Tap to take bike photo'}
-        </span>
-      </div>
+      {/* Photo — Camera + Gallery options */}
+      <PhotoCapture label="Tap to take bike photo" onCapture={setPhotoFile} />
 
-      {/* Form */}
+      {/* Phone */}
       <FormField label="Phone Number">
         <div className="relative">
           <input type="tel" value={form.customerPhone} maxLength={10}
@@ -212,7 +219,7 @@ export default function CheckIn() {
           placeholder="Enter name" className="form-input" />
       </FormField>
 
-      {/* Bike picker — show saved bikes if returning customer */}
+      {/* Bike picker — saved bikes for returning customer */}
       {customerBikes.length > 0 && (
         <FormField label="Saved Bikes">
           <div className="flex flex-col gap-1.5">
@@ -239,7 +246,6 @@ export default function CheckIn() {
         </FormField>
       )}
 
-      {/* Free-text bike input — always shown if no bike selected from picker */}
       {(!form.bikeId || customerBikes.length === 0) && (
         <FormField label="Bike Model">
           <input value={form.bike} onChange={e => update('bike', e.target.value)}
@@ -247,40 +253,101 @@ export default function CheckIn() {
         </FormField>
       )}
 
-      {/* Service Type — multi-select dropdown */}
+      {/* Service Type — single select inline buttons */}
       <FormField label="Service Type">
-        <MultiSelectDropdown
-          ref={servicesRef}
-          isOpen={servicesOpen}
-          onToggle={() => { setServicesOpen(!servicesOpen); setPartsOpen(false); }}
-          options={serviceList}
-          optionItems={serviceItems}
-          selected={selectedServices}
-          onToggleOption={toggleService}
-          placeholder="Select services..."
-        />
+        <div className="flex flex-wrap gap-2">
+          {serviceList.length > 0 ? (
+            serviceList.map(svc => {
+              const price = serviceItems?.find(i => i.name === svc)?.price || 0;
+              const isActive = selectedService === svc;
+              return (
+                <button
+                  key={svc}
+                  type="button"
+                  onClick={() => setSelectedService(isActive ? null : svc)}
+                  className={`px-3 py-2 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer
+                    ${isActive
+                      ? 'border-blue-primary bg-blue-light text-blue-primary'
+                      : 'border-grey-border text-grey-muted hover:bg-grey-bg'}`}
+                >
+                  {svc}
+                  {price > 0 && <span className="text-[11px] ml-1 opacity-70">₹{price}</span>}
+                </button>
+              );
+            })
+          ) : (
+            <span className="text-sm text-grey-muted">No services available</span>
+          )}
+        </div>
       </FormField>
 
-      {/* Parts — multi-select dropdown */}
+      {/* Parts — dropdown with search, adds with quantity */}
       <FormField label="Parts">
-        <MultiSelectDropdown
+        <PartsDropdown
           ref={partsRef}
           isOpen={partsOpen}
-          onToggle={() => { setPartsOpen(!partsOpen); setServicesOpen(false); }}
+          onToggle={() => setPartsOpen(!partsOpen)}
           options={partsList}
           optionItems={partsItems}
-          selected={selectedParts}
-          onToggleOption={togglePart}
+          partLines={partLines}
+          onAddPart={addPart}
           placeholder="Select parts..."
         />
       </FormField>
 
-      {/* Total Charges */}
+      {/* Parts Bill */}
+      {partLines.length > 0 && (
+        <div className="border border-grey-border rounded-xl overflow-hidden">
+          <div className="bg-grey-bg px-3 py-2 border-b border-grey-border">
+            <span className="text-xs font-bold text-grey-muted uppercase tracking-wide">Parts Bill</span>
+          </div>
+          <div className="divide-y divide-grey-border/50">
+            {partLines.map(p => (
+              <div key={p.name} className="flex items-center gap-2 px-3 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-semibold block truncate">{p.name}</span>
+                  <span className="text-[11px] text-grey-muted">₹{p.price} each</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button type="button" onClick={() => updatePartQty(p.name, -1)}
+                    className="w-7 h-7 rounded-lg bg-grey-bg flex items-center justify-center text-grey-muted hover:bg-grey-border cursor-pointer transition-colors">
+                    <Minus size={14} />
+                  </button>
+                  <span className="w-6 text-center text-sm font-bold">{p.qty}</span>
+                  <button type="button" onClick={() => updatePartQty(p.name, 1)}
+                    className="w-7 h-7 rounded-lg bg-grey-bg flex items-center justify-center text-grey-muted hover:bg-grey-border cursor-pointer transition-colors">
+                    <Plus size={14} />
+                  </button>
+                </div>
+                <span className="text-sm font-bold w-16 text-right">₹{p.price * p.qty}</span>
+                <button type="button" onClick={() => removePart(p.name)}
+                  className="p-1 text-red-urgent/60 hover:text-red-urgent cursor-pointer">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+          {/* Total row */}
+          <div className="flex items-center justify-between px-3 py-2.5 bg-blue-light/50 border-t border-grey-border">
+            <span className="text-sm font-bold text-grey-text">
+              {selectedService && servicePrice > 0 && (
+                <span className="text-grey-muted font-semibold">
+                  Service ₹{servicePrice} + Parts ₹{partsTotal} ={' '}
+                </span>
+              )}
+              Total
+            </span>
+            <span className="text-base font-bold text-blue-primary">₹{servicePrice + partsTotal}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Total Charges (editable) */}
       <FormField label="Total Charges (₹)">
         <input type="number" inputMode="numeric" min="0"
           value={form.totalCharge}
           onChange={e => update('totalCharge', e.target.value)}
-          placeholder="Enter total amount"
+          placeholder="Auto-calculated or enter manually"
           className="form-input" />
       </FormField>
 
@@ -318,117 +385,102 @@ export default function CheckIn() {
               ${form.priority === 'urgent'
                 ? 'border-red-urgent bg-red-light text-red-urgent'
                 : 'border-grey-border text-grey-muted'}`}>
-            🚨 Urgent
+            Urgent
           </button>
         </div>
       </FormField>
 
       <Button size="lg" block onClick={handleSubmit} disabled={isSubmitting}>
-        {isSubmitting ? 'Checking in...' : '✔ CHECK IN BIKE'}
+        {isSubmitting ? 'Checking in...' : 'CHECK IN BIKE'}
       </Button>
     </div>
   );
 }
 
-// --- Multi-select dropdown component ---
-import { forwardRef } from 'react';
+// --- Parts dropdown with search (tap to add, supports duplicates via qty) ---
 
 interface OptionItem {
   name: string;
   price: number;
 }
 
-interface MultiSelectDropdownProps {
+interface PartsDropdownProps {
   isOpen: boolean;
   onToggle: () => void;
   options: string[];
   optionItems?: OptionItem[];
-  selected: string[];
-  onToggleOption: (opt: string) => void;
+  partLines: PartLine[];
+  onAddPart: (name: string) => void;
   placeholder: string;
 }
 
-const MultiSelectDropdown = forwardRef<HTMLDivElement, MultiSelectDropdownProps>(
-  ({ isOpen, onToggle, options, optionItems, selected, onToggleOption, placeholder }, ref) => {
+const PartsDropdown = forwardRef<HTMLDivElement, PartsDropdownProps>(
+  ({ isOpen, onToggle, options, optionItems, partLines, onAddPart, placeholder }, ref) => {
     const [search, setSearch] = useState('');
     const searchRef = useRef<HTMLInputElement>(null);
     const getPrice = (opt: string) => optionItems?.find(i => i.name === opt)?.price || 0;
+    const getQty = (opt: string) => partLines.find(p => p.name === opt)?.qty || 0;
 
     const filtered = search.trim()
       ? options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()))
       : options;
 
-    // Focus search input when dropdown opens
     useEffect(() => {
       if (isOpen && searchRef.current) searchRef.current.focus();
       if (!isOpen) setSearch('');
     }, [isOpen]);
 
+    const totalParts = partLines.reduce((s, p) => s + p.qty, 0);
+
     return (
       <div ref={ref} className="relative">
-        {/* Trigger */}
         <button
           type="button"
           onClick={onToggle}
           className="w-full flex items-center justify-between border border-grey-border rounded-xl px-3 py-2.5 text-sm bg-white cursor-pointer hover:bg-grey-bg transition-colors"
         >
-          <span className={selected.length > 0 ? 'text-grey-text' : 'text-grey-light'}>
-            {selected.length > 0 ? `${selected.length} selected` : placeholder}
+          <span className={totalParts > 0 ? 'text-grey-text' : 'text-grey-light'}>
+            {totalParts > 0 ? `${totalParts} part${totalParts > 1 ? 's' : ''} added` : placeholder}
           </span>
           <ChevronDown size={16} className={`text-grey-muted transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </button>
 
-        {/* Selected chips */}
-        {selected.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {selected.map(item => (
-              <span key={item} className="inline-flex items-center gap-1 bg-blue-light text-blue-primary text-xs font-semibold px-2 py-1 rounded-lg">
-                {item}
-                <button type="button" onClick={() => onToggleOption(item)} className="cursor-pointer hover:text-red-urgent">
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Dropdown */}
         {isOpen && (
           <div className="absolute z-50 mt-1 w-full bg-white border border-grey-border rounded-xl shadow-lg max-h-64 flex flex-col">
-            {/* Search input */}
             <div className="sticky top-0 bg-white border-b border-grey-border p-2">
               <input
                 ref={searchRef}
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search..."
+                placeholder="Search parts..."
                 className="w-full px-2.5 py-1.5 text-sm border border-grey-border rounded-lg outline-none focus:border-blue-primary"
               />
             </div>
             <div className="overflow-y-auto flex-1">
               {filtered.length === 0 ? (
                 <div className="px-3 py-4 text-sm text-grey-muted text-center">
-                  {options.length === 0 ? 'No options available yet' : 'No matches found'}
+                  {options.length === 0 ? 'No parts available yet' : 'No matches found'}
                 </div>
               ) : (
                 filtered.map(opt => {
-                  const isSelected = selected.includes(opt);
+                  const qty = getQty(opt);
                   return (
                     <button
                       key={opt}
                       type="button"
-                      onClick={() => onToggleOption(opt)}
-                      className={`w-full text-left px-3 py-2.5 text-sm cursor-pointer transition-colors flex items-center gap-2
-                        ${isSelected ? 'bg-blue-light text-blue-primary font-semibold' : 'hover:bg-grey-bg'}`}
+                      onClick={() => onAddPart(opt)}
+                      className="w-full text-left px-3 py-2.5 text-sm cursor-pointer transition-colors flex items-center gap-2 hover:bg-grey-bg active:bg-blue-light"
                     >
-                      <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0
-                        ${isSelected ? 'border-blue-primary bg-blue-primary' : 'border-grey-border'}`}>
-                        {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
-                      </span>
+                      <Plus size={14} className="text-blue-primary shrink-0" />
                       <span className="flex-1">{opt}</span>
+                      {qty > 0 && (
+                        <span className="text-[11px] font-bold text-blue-primary bg-blue-light px-1.5 py-0.5 rounded">
+                          x{qty}
+                        </span>
+                      )}
                       {getPrice(opt) > 0 && (
-                        <span className="text-xs text-grey-muted ml-1">₹{getPrice(opt)}</span>
+                        <span className="text-xs text-grey-muted">₹{getPrice(opt)}</span>
                       )}
                     </button>
                   );
