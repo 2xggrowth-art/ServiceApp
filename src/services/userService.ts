@@ -174,15 +174,5 @@ export const userService = {
     }
   },
 
-  // Unlock a locked-out user (admin/owner only)
-  async unlockUser(userId: string) {
-    if (!config.useSupabase) return null;
-
-    const { error } = await supabase.rpc('unlock_user', {
-      p_user_id: userId,
-    });
-
-    if (error) throw error;
-  },
 };
 

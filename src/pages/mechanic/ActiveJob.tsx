@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { STATUS, SERVICE_TYPES } from '../../lib/constants';
+import { STATUS } from '../../lib/constants';
 import { formatCurrency } from '../../lib/helpers';
 import { haptic } from '../../lib/haptic';
 import Card from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import Modal from '../../components/ui/Modal';
 import { Wrench, Package, Image, Volume2 } from 'lucide-react';
 import { openWhatsApp } from '../../lib/whatsapp';
 
@@ -22,7 +20,7 @@ function parsePhotoUrls(val?: string): string[] {
 export default function ActiveJob() {
   const {
     getMechanicJobs, currentMechanicId, completeJob, markPartsNeeded, markPartsReceived,
-    pauseJob, resumeJob, showToast, parts, partsList, partsItems, serviceItems
+    pauseJob, resumeJob, showToast, partsList, partsItems, serviceItems
   } = useApp();
   const navigate = useNavigate();
 
@@ -34,9 +32,6 @@ export default function ActiveJob() {
   const isPartsPending = activeJob?.status === STATUS.PARTS_PENDING;
 
   const [partsUsed, setPartsUsed] = useState([]);
-  const [partsModalOpen, setPartsModalOpen] = useState(false);
-  const [selectedPartId, setSelectedPartId] = useState('');
-  const [partQty, setPartQty] = useState(1);
 
   // Load existing parts
   useEffect(() => {
@@ -45,25 +40,18 @@ export default function ActiveJob() {
     }
   }, [activeJob?.id]);
 
-  const handleAddPart = () => {
-    if (!selectedPartId) return;
+  const handleTapPart = (partName: string) => {
     haptic();
-
-    if (selectedPartId.startsWith('inv-')) {
-      const invId = Number(selectedPartId.replace('inv-', ''));
-      const part = parts.find(p => p.id === invId);
-      if (!part) return;
-      setPartsUsed(prev => [...prev, { name: part.name, qty: partQty, price: part.price }]);
-    } else if (selectedPartId.startsWith('list-')) {
-      const partName = selectedPartId.replace('list-', '');
-      const price = partsItems?.find(i => i.name === partName)?.price || 0;
-      setPartsUsed(prev => [...prev, { name: partName, qty: partQty, price }]);
-    }
-
-    setPartsModalOpen(false);
-    setSelectedPartId('');
-    setPartQty(1);
-    showToast('Part added', 'success');
+    const price = partsItems?.find(i => i.name === partName)?.price || 0;
+    setPartsUsed(prev => {
+      const existing = prev.findIndex(p => p.name === partName);
+      if (existing >= 0) {
+        const updated = [...prev];
+        updated[existing] = { ...updated[existing], qty: updated[existing].qty + 1 };
+        return updated;
+      }
+      return [...prev, { name: partName, qty: 1, price }];
+    });
   };
 
   const removePart = (idx: number) => {
@@ -120,7 +108,6 @@ export default function ActiveJob() {
     );
   }
 
-  const st = SERVICE_TYPES[activeJob.serviceType] || SERVICE_TYPES.regular;
   const jobServices = activeJob.services || [];
   const jobCheckinParts = activeJob.checkinParts || [];
 
@@ -253,35 +240,46 @@ export default function ActiveJob() {
         </div>
       )}
 
-      {/* Parts Used */}
+      {/* Parts — tap to add, tap added part to +1, long-press to remove */}
       <div>
-        <h4 className="text-sm font-bold text-black uppercase tracking-wider mb-3">Parts Used</h4>
-        {partsUsed.length === 0 ? (
-          <p className="text-sm text-black/50 font-medium">No parts added yet</p>
-        ) : (
-          <div className="space-y-2">
+        <h4 className="text-sm font-bold text-black uppercase tracking-wider mb-3">
+          <Wrench size={14} className="inline mr-1.5" /> Tap to add parts
+        </h4>
+        <div className="flex flex-wrap gap-2">
+          {partsList.map(name => {
+            const added = partsUsed.find(p => p.name === name);
+            return (
+              <button
+                key={name}
+                onClick={() => handleTapPart(name)}
+                className={`px-4 py-2.5 rounded-2xl text-sm font-bold cursor-pointer active:scale-95 transition-transform
+                  ${added ? 'bg-blue-primary text-white' : 'bg-white border-2 border-gray-300 text-black active:bg-gray-100'}`}
+              >
+                {name}{added ? ` ×${added.qty}` : ''}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Added parts summary with remove */}
+        {partsUsed.length > 0 && (
+          <div className="mt-3 border-2 border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-100">
             {partsUsed.map((p, i) => (
-              <div key={i} className="flex items-center justify-between bg-white rounded-2xl p-4 border-2 border-gray-200">
-                <div>
-                  <div className="text-sm font-bold text-black">{p.name}</div>
-                  <div className="text-sm text-black/60">Qty: {p.qty} {p.price > 0 ? `• ${formatCurrency(p.price)}` : ''}</div>
+              <div key={i} className="flex items-center justify-between px-4 py-3">
+                <span className="text-sm font-bold text-black">{p.name} ×{p.qty}</span>
+                <div className="flex items-center gap-3">
+                  {p.price > 0 && <span className="text-sm font-bold text-black/60">₹{p.price * p.qty}</span>}
+                  <button
+                    onClick={() => removePart(i)}
+                    className="min-w-8 min-h-8 bg-red-urgent/10 text-red-urgent text-sm font-bold rounded-lg flex items-center justify-center cursor-pointer active:bg-red-urgent/20"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <button
-                  onClick={() => removePart(i)}
-                  className="min-w-10 min-h-10 bg-red-urgent/10 text-red-urgent text-lg font-bold rounded-xl flex items-center justify-center cursor-pointer active:bg-red-urgent/20"
-                >
-                  ✕
-                </button>
               </div>
             ))}
           </div>
         )}
-        <button
-          onClick={() => { haptic(); setPartsModalOpen(true); }}
-          className="w-full min-h-14 mt-3 bg-white border-2 border-gray-300 text-black text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:bg-gray-100 transition-colors"
-        >
-          <Wrench size={18} /> + Add Part
-        </button>
       </div>
 
       {/* Action Buttons — chunky grid */}
@@ -313,47 +311,6 @@ export default function ActiveJob() {
         ✅ COMPLETE JOB
       </button>
 
-      {/* Parts Modal */}
-      <Modal open={partsModalOpen} onClose={() => setPartsModalOpen(false)} title="Add Part Used">
-        <div className="space-y-4 mb-4" style={{ fontFamily: 'var(--font-mechanic)' }}>
-          <div>
-            <label className="text-sm font-bold text-black block mb-2">Part Name</label>
-            <select
-              value={selectedPartId}
-              onChange={e => setSelectedPartId(e.target.value)}
-              className="w-full border-2 border-gray-300 rounded-2xl px-4 py-3 text-base bg-white text-black font-medium"
-            >
-              <option value="">Select a part...</option>
-              {partsList.map(p => (
-                <option key={p} value={`list-${p}`}>{p}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-bold text-black block mb-2">Quantity</label>
-            <input
-              type="number" min="1" value={partQty}
-              onChange={e => setPartQty(Number(e.target.value) || 1)}
-              className="w-full border-2 border-gray-300 rounded-2xl px-4 py-3 text-base font-medium"
-            />
-          </div>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setPartsModalOpen(false)}
-            className="flex-1 min-h-14 bg-white border-2 border-gray-300 text-black text-base font-bold rounded-2xl flex items-center justify-center cursor-pointer active:bg-gray-100"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleAddPart}
-            disabled={!selectedPartId}
-            className="flex-1 min-h-14 bg-green-success text-white text-base font-bold rounded-2xl flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Add Part
-          </button>
-        </div>
-      </Modal>
     </div>
   );
 }

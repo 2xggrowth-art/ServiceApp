@@ -94,8 +94,6 @@ export function mapUserFromDb(row: Record<string, unknown>) {
     color: row.color as string,
     status: row.status as string,
     isActive: row.is_active as boolean,
-    failedPinAttempts: row.failed_pin_attempts as number | undefined,
-    lockedUntil: row.locked_until as string | null | undefined,
     lastLoginAt: row.last_login_at as string | null | undefined,
     createdAt: row.created_at as string | undefined,
   };

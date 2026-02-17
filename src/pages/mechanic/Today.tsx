@@ -1,20 +1,20 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { STATUS } from '../../lib/constants';
 import { getToday } from '../../lib/helpers';
 import { openWhatsApp } from '../../lib/whatsapp';
+import { haptic } from '../../lib/haptic';
 import JobCard from '../../components/ui/JobCard';
-import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 
 export default function Today() {
   const { getMechanicJobs, currentMechanicId, pickJob, startJob, reassignJob, showToast, jobs, mechanics } = useApp();
-  // No manual refresh needed — polling (30s) + realtime + visibility listener handle data freshness
   const navigate = useNavigate();
+  const [doneOpen, setDoneOpen] = useState(false);
   const myJobs = getMechanicJobs(currentMechanicId);
   const today = getToday();
 
-  // Jobs assigned to OTHER mechanics that this mechanic can take over
   const takeoverJobs = jobs.filter(j =>
     j.mechanicId &&
     j.mechanicId !== currentMechanicId &&
@@ -22,11 +22,9 @@ export default function Today() {
     (j.date === today || j.date < today)
   );
 
-  // Separate unassigned (available to pick) from my assigned jobs
   const unassignedJobs = myJobs
     .filter(j => j.status === STATUS.RECEIVED && !j.mechanicId)
     .sort((a, b) => {
-      // Urgent first, then by creation time
       if (a.priority === 'urgent' && b.priority !== 'urgent') return -1;
       if (b.priority === 'urgent' && a.priority !== 'urgent') return 1;
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -39,10 +37,15 @@ export default function Today() {
   const total = myAssignedJobs.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
-  const morning = todayJobs.filter(j => j.timeBlock === 'morning');
-  const afternoon = todayJobs.filter(j => j.timeBlock === 'afternoon');
+  const doneStatuses = [STATUS.COMPLETED, STATUS.READY, STATUS.QUALITY_CHECK];
+  const activeTodayJobs = todayJobs.filter(j => !doneStatuses.includes(j.status));
+  const doneTodayJobs = todayJobs.filter(j => doneStatuses.includes(j.status));
+
+  const morning = activeTodayJobs.filter(j => j.timeBlock === 'morning');
+  const afternoon = activeTodayJobs.filter(j => j.timeBlock === 'afternoon');
 
   const handlePick = async (jobId) => {
+    haptic(80);
     try {
       await pickJob(jobId);
       showToast('Job picked! Timer started.', 'success');
@@ -57,6 +60,7 @@ export default function Today() {
   };
 
   const handleStart = async (jobId) => {
+    haptic(80);
     try {
       await startJob(jobId);
       showToast('Job started! Timer running.', 'info');
@@ -72,6 +76,7 @@ export default function Today() {
 
   const handleTakeover = async (jobId) => {
     if (!currentMechanicId) return;
+    haptic(80);
     try {
       await reassignJob(jobId, currentMechanicId);
       showToast('Job taken over! It\'s now yours.', 'success');
@@ -80,57 +85,98 @@ export default function Today() {
     }
   };
 
+  /** Full-width chunky action buttons — minimum 56-64px tall */
   const getActions = (job) => {
-    // Job assigned to another mechanic — show take over
     if (job.mechanicId && job.mechanicId !== currentMechanicId) {
-      return <Button size="sm" variant="warning" onClick={() => handleTakeover(job.id)}>🔄 TAKE OVER</Button>;
+      return (
+        <button
+          onClick={() => handleTakeover(job.id)}
+          className="w-full min-h-14 bg-orange-action text-white text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform"
+        >
+          🔄 TAKE OVER
+        </button>
+      );
     }
     if (job.status === STATUS.RECEIVED && !job.mechanicId) {
-      return <Button size="sm" variant="success" onClick={() => handlePick(job.id)}>🎯 PICK & START</Button>;
+      return (
+        <button
+          onClick={() => handlePick(job.id)}
+          className="w-full min-h-16 bg-green-success text-white text-lg font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform shadow-md"
+        >
+          🎯 PICK & START
+        </button>
+      );
     }
     if (job.status === STATUS.ASSIGNED) {
-      return <Button size="sm" onClick={() => handleStart(job.id)}>▶ START</Button>;
+      return (
+        <button
+          onClick={() => handleStart(job.id)}
+          className="w-full min-h-16 bg-blue-primary text-white text-lg font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform shadow-md"
+        >
+          ▶ START JOB
+        </button>
+      );
     }
     if (job.status === STATUS.IN_PROGRESS) {
-      return <Button size="sm" variant="success" onClick={() => navigate('/mechanic/active')}>⏰ VIEW</Button>;
+      return (
+        <button
+          onClick={() => { haptic(); navigate('/mechanic/active'); }}
+          className="w-full min-h-14 bg-blue-primary text-white text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform"
+        >
+          ⏰ VIEW ACTIVE JOB
+        </button>
+      );
+    }
+    if (job.status === STATUS.PARTS_PENDING) {
+      return (
+        <button
+          onClick={() => { haptic(); navigate('/mechanic/active'); }}
+          className="w-full min-h-14 bg-orange-action text-white text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform"
+        >
+          🔧 VIEW JOB
+        </button>
+      );
     }
     return null;
   };
 
   return (
-    <div className="space-y-4">
-      {/* Progress */}
-      <Card>
-        <div className="flex justify-between text-sm mb-2">
-          <span className="font-semibold">Today's Progress</span>
-          <span className="text-grey-muted">{done}/{total} jobs</span>
+    <div className="space-y-5" style={{ fontFamily: 'var(--font-mechanic)' }}>
+      {/* Progress — thick bar visible from distance */}
+      <Card className="!p-5">
+        <div className="flex justify-between items-end mb-3">
+          <span className="text-base font-bold text-black">Today's Progress</span>
+          <span className="text-2xl font-bold text-black">{done}/{total}</span>
         </div>
-        <div className="h-2.5 bg-grey-bg rounded-full overflow-hidden">
+        <div className="h-8 bg-gray-200 rounded-2xl overflow-hidden relative">
           <div
-            className="h-full bg-green-success rounded-full transition-all duration-700"
-            style={{ width: `${pct}%` }}
-          />
+            className="h-full bg-green-success rounded-2xl transition-all duration-700 flex items-center justify-end pr-3"
+            style={{ width: `${Math.max(pct, 8)}%` }}
+          >
+            {pct > 15 && (
+              <span className="text-white text-sm font-bold">{pct}%</span>
+            )}
+          </div>
+          {pct <= 15 && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-black">{pct}%</span>
+          )}
         </div>
       </Card>
 
       {/* Available Jobs to Pick */}
       {unassignedJobs.length > 0 && (
         <>
-          <div className="text-sm font-bold text-blue-primary flex items-center gap-2">
-            🎯 Available Jobs — Pick One
-          </div>
+          <SectionLabel color="text-blue-primary" emoji="🎯" text="Available — Pick One" />
           {unassignedJobs.map(job => (
             <JobCard key={job.id} job={job} actions={getActions(job)} />
           ))}
         </>
       )}
 
-      {/* Jobs from other mechanics — available to take over */}
+      {/* Take over jobs */}
       {takeoverJobs.length > 0 && (
         <>
-          <div className="text-sm font-bold text-orange-action flex items-center gap-2">
-            🔄 Other Mechanics' Jobs — Take Over
-          </div>
+          <SectionLabel color="text-orange-action" emoji="🔄" text="Take Over" />
           {takeoverJobs.map(job => {
             const mech = mechanics.find(m => m.id === job.mechanicId);
             return <JobCard key={job.id} job={job} mechanic={mech} actions={getActions(job)} />;
@@ -138,52 +184,74 @@ export default function Today() {
         </>
       )}
 
-      {/* Carryover from previous days */}
+      {/* Carryover */}
       {carryoverJobs.length > 0 && (
         <>
-          <div className="text-sm font-bold text-orange-action flex items-center gap-2">
-            📌 Ongoing from previous days
-          </div>
+          <SectionLabel color="text-red-urgent" emoji="📌" text="Ongoing" />
           {carryoverJobs.map(job => (
             <JobCard key={job.id} job={job} actions={getActions(job)} />
           ))}
         </>
       )}
 
-      {/* Morning Block */}
+      {/* Morning */}
       {morning.length > 0 && (
         <>
-          <div className="text-sm font-bold text-grey-muted flex items-center gap-2">
-            ☀️ Morning
-          </div>
+          <SectionLabel color="text-black" emoji="☀️" text="Morning" />
           {morning.map(job => (
             <JobCard key={job.id} job={job} dimCompleted actions={getActions(job)} />
           ))}
         </>
       )}
 
-      {/* Afternoon Block */}
+      {/* Afternoon */}
       {afternoon.length > 0 && (
         <>
-          <div className="text-sm font-bold text-grey-muted flex items-center gap-2">
-            🌅 Afternoon
-          </div>
+          <SectionLabel color="text-black" emoji="🌅" text="Afternoon" />
           {afternoon.map(job => (
             <JobCard key={job.id} job={job} dimCompleted actions={getActions(job)} />
           ))}
         </>
       )}
 
-      {/* Empty */}
-      {myJobs.length === 0 && (
-        <div className="text-center py-16">
-          <div className="text-5xl mb-3">🎉</div>
-          <p className="text-grey-muted">No jobs available!</p>
-          <p className="text-xs text-grey-light mt-1">Check back soon for new jobs</p>
+      {/* Done — collapsible */}
+      {doneTodayJobs.length > 0 && (
+        <div>
+          <button
+            onClick={() => setDoneOpen(prev => !prev)}
+            className="w-full flex items-center justify-between text-base font-bold text-green-success cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-xl">✅</span> Done ({doneTodayJobs.length})
+            </span>
+            <span className={`text-lg transition-transform duration-200 ${doneOpen ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          {doneOpen && (
+            <div className="mt-3 space-y-3">
+              {doneTodayJobs.map(job => (
+                <JobCard key={job.id} job={job} dimCompleted />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      <p className="text-center text-xs text-grey-light">Tap PICK & START to claim a job</p>
+      {/* Empty — bold, simple */}
+      {myJobs.length === 0 && (
+        <div className="text-center py-20">
+          <div className="text-6xl mb-4">✅</div>
+          <p className="text-xl font-bold text-black">All Done!</p>
+          <p className="text-base text-black/60 mt-2">Check back later for new jobs</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SectionLabel({ color, emoji, text }: { color: string; emoji: string; text: string }) {
+  return (
+    <div className={`text-base font-bold ${color} flex items-center gap-2`}>
+      <span className="text-xl">{emoji}</span> {text}
     </div>
   );
 }

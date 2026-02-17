@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { config } from '../../lib/config';
 import Button from '../../components/ui/Button';
 import MultiPhotoCapture from '../../components/ui/MultiPhotoCapture';
 import { photoService } from '../../services/photoService';
@@ -87,24 +88,44 @@ export default function NewService() {
     setIsSubmitting(true);
     try {
       const flatParts = partLines.flatMap(p => Array(p.qty).fill(p.name));
-      const jobData = {
+
+      // Upload photos/audio BEFORE creating job so real URLs are stored
+      let photoBefore: string | undefined;
+      let photoAfter: string | undefined;
+
+      if (navigator.onLine && config.useSupabase) {
+        if (photoFiles.length > 0) {
+          const urls = await photoService.uploadPhotosOnly(photoFiles);
+          if (urls.length > 0) photoBefore = JSON.stringify(urls);
+        }
+        if (audioFile) {
+          const url = await photoService.uploadAudioOnly(audioFile);
+          if (url) photoAfter = url;
+        }
+      } else if (photoFiles.length > 0 || audioFile) {
+        if (photoFiles.length > 0) {
+          photoBefore = JSON.stringify(photoFiles.map(f => URL.createObjectURL(f)));
+        }
+        if (audioFile) {
+          photoAfter = URL.createObjectURL(audioFile);
+        }
+      }
+
+      const jobData: Record<string, unknown> = {
         ...form,
         services: selectedService ? [selectedService] : [],
         checkinParts: flatParts,
         laborCharge: form.totalCharge ? Number(form.totalCharge) : undefined,
+        ...(photoBefore && { photoBefore }),
+        ...(photoAfter && { photoAfter }),
       };
       const job = await createJob(jobData);
-      if (job?.id) {
-        if (navigator.onLine) {
-          if (photoFiles.length > 0) photoService.uploadPhotos(job.id, photoFiles).catch(() => {});
-          if (audioFile) photoService.uploadAudio(job.id, audioFile).catch(() => {});
-        } else if (photoFiles.length > 0 || audioFile) {
-          offlineDb.savePendingMedia(
-            String(job.id),
-            photoFiles,
-            audioFile,
-          ).catch(() => {});
-        }
+      if (job?.id && !navigator.onLine && (photoFiles.length > 0 || audioFile)) {
+        offlineDb.savePendingMedia(
+          String(job.id),
+          photoFiles,
+          audioFile,
+        ).catch(() => {});
       }
       const mech = job ? mechanics.find(m => m.id === job.mechanicId) : null;
       showToast(`Checked in! ${mech?.name ? `Assigned to ${mech.name}` : 'Added to queue'}`, 'success');

@@ -161,45 +161,45 @@ export default function VoiceInput({ onTextResult, onAudioRecorded, disabled }: 
   const hasSpeechSupport = !!SpeechRecognition;
 
   return (
-    <div className="flex items-center gap-2 mt-1.5">
-      {/* Speech-to-Text button */}
+    <div className="flex items-center gap-2 mt-2">
+      {/* Speech-to-Text — secondary utility style */}
       <button
         type="button"
         onClick={toggleSpeechToText}
         disabled={disabled || isRecording || !hasSpeechSupport}
         title={hasSpeechSupport ? (isListening ? 'Stop listening' : 'Speech to text — speak and it types') : 'Not supported in this browser'}
-        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer
+        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium transition-all cursor-pointer border
           ${isListening
-            ? 'bg-blue-primary text-white animate-pulse'
-            : 'bg-grey-bg text-grey-muted hover:bg-grey-border'}
-          disabled:opacity-40 disabled:cursor-not-allowed`}
+            ? 'bg-blue-primary/10 text-blue-primary border-blue-primary/30'
+            : 'bg-white text-grey-muted border-grey-border/60 hover:bg-grey-bg hover:border-grey-light'}
+          disabled:opacity-30 disabled:cursor-not-allowed`}
       >
-        {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+        {isListening ? <MicOff size={13} /> : <Mic size={13} />}
         {isListening ? 'Listening...' : 'Speech to Text'}
       </button>
 
-      {/* Voice Record button */}
+      {/* Voice Record — secondary utility style */}
       {onAudioRecorded && (
         <button
           type="button"
           onClick={isRecording ? stopRecording : startRecording}
           disabled={disabled || isListening}
           title={isRecording ? 'Stop recording' : 'Record voice note'}
-          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium transition-all cursor-pointer border
             ${isRecording
-              ? 'bg-red-urgent text-white'
-              : 'bg-grey-bg text-grey-muted hover:bg-grey-border'}
-            disabled:opacity-40 disabled:cursor-not-allowed`}
+              ? 'bg-red-urgent/10 text-red-urgent border-red-urgent/30'
+              : 'bg-white text-grey-muted border-grey-border/60 hover:bg-grey-bg hover:border-grey-light'}
+            disabled:opacity-30 disabled:cursor-not-allowed`}
         >
           {isRecording ? (
             <>
-              <Square size={12} fill="currentColor" />
+              <Square size={11} fill="currentColor" />
               <span>{formatTime(recordingTime)}</span>
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-red-urgent animate-pulse" />
             </>
           ) : (
             <>
-              <Circle size={14} fill="currentColor" className="text-red-urgent" />
+              <Circle size={13} fill="currentColor" className="text-red-urgent/50" />
               Record Voice
             </>
           )}

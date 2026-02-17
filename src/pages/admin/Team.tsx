@@ -198,14 +198,6 @@ export default function Team() {
     }
   };
 
-  const handleUnlock = async (userId: string, name: string) => {
-    try {
-      await userService.unlockUser(userId);
-      showToast(`${name} unlocked`, 'success');
-    } catch {
-      showToast('Failed to unlock user', 'error');
-    }
-  };
 
   return (
     <div className="space-y-3">
@@ -370,7 +362,6 @@ export default function Team() {
       <Card className="divide-y divide-grey-border/50 overflow-hidden !p-0">
         {rankedData.map(m => {
           const mechanic = mechanics.find(mech => mech.id === m.id);
-          const isLocked = mechanic && 'lockedUntil' in mechanic && (mechanic as Record<string, unknown>).lockedUntil;
           const isOnDuty = m.status === 'on_duty';
           return (
             <div key={m.id} className="flex items-center gap-3 px-4 py-3.5 hover:bg-admin-card-hover transition-colors duration-150">
@@ -385,7 +376,6 @@ export default function Team() {
                   <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold capitalize ${
                     m.role === 'senior' ? 'bg-green-light text-green-success' : 'bg-grey-bg text-grey-muted'
                   }`}>{m.role}</span>
-                  {isLocked && <span className="text-[10px] text-red-urgent font-bold">LOCKED</span>}
                 </div>
                 <div className="text-[11px] text-grey-muted mt-0.5">
                   {m.done} done · On-time: {Math.round(m.onTimeRate)}%
@@ -394,12 +384,6 @@ export default function Team() {
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {isLocked && config.useSupabase && (
-                  <button onClick={() => handleUnlock(m.id, m.name)}
-                    className="text-[10px] text-blue-primary font-bold px-2 py-1 rounded-lg border border-blue-primary cursor-pointer">
-                    Unlock
-                  </button>
-                )}
                 <button
                   onClick={() => handleToggleStatus(m)}
                   disabled={togglingId === m.id}

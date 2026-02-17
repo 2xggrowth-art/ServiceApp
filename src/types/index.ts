@@ -92,8 +92,6 @@ export interface User {
   color: string;
   status: MechanicStatus;
   isActive?: boolean;
-  failedPinAttempts?: number;
-  lockedUntil?: string | null;
   lastLoginAt?: string | null;
   createdAt?: string;
 }

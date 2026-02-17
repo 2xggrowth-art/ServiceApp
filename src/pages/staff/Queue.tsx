@@ -22,13 +22,15 @@ export default function Queue() {
 
   const counts: Record<string, number> = {
     all: jobs.length,
+    unassigned: jobs.filter(j => j.status === STATUS.RECEIVED).length,
     working: jobs.filter(j => j.status === STATUS.IN_PROGRESS).length,
     parts: jobs.filter(j => j.status === STATUS.PARTS_PENDING).length,
     ready: jobs.filter(j => j.status === STATUS.READY).length,
   };
 
   let filtered = jobs;
-  if (filter === 'working') filtered = jobs.filter(j => j.status === STATUS.IN_PROGRESS);
+  if (filter === 'unassigned') filtered = jobs.filter(j => j.status === STATUS.RECEIVED);
+  else if (filter === 'working') filtered = jobs.filter(j => j.status === STATUS.IN_PROGRESS);
   else if (filter === 'parts') filtered = jobs.filter(j => j.status === STATUS.PARTS_PENDING);
   else if (filter === 'ready') filtered = jobs.filter(j => j.status === STATUS.READY);
 
@@ -36,24 +38,33 @@ export default function Queue() {
   filtered = [...filtered].sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status));
 
   const filters = [
-    { id: 'all', label: 'All' },
-    { id: 'working', label: 'Working' },
-    { id: 'parts', label: 'Parts Wait' },
-    { id: 'ready', label: 'Ready' },
+    { id: 'all', label: 'All', color: 'bg-blue-primary' },
+    { id: 'unassigned', label: 'Unassigned', color: 'bg-grey-muted' },
+    { id: 'working', label: 'Working', color: 'bg-amber-500' },
+    { id: 'parts', label: 'Parts Wait', color: 'bg-orange-action' },
+    { id: 'ready', label: 'Ready', color: 'bg-emerald-500' },
   ];
 
   return (
     <div>
-      {/* Filter Pills */}
-      <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
+      {/* Header */}
+      <div className="mb-4">
+        <h3 className="text-lg font-extrabold tracking-tight">Service Queue</h3>
+        <p className="text-[11px] text-grey-muted mt-0.5">{jobs.length} active job{jobs.length !== 1 ? 's' : ''}</p>
+      </div>
+
+      {/* Filter Pills — refined with color indicators */}
+      <div className="flex gap-2 mb-5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
         {filters.map(f => (
           <button key={f.id} onClick={() => setFilter(f.id)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5
+            className={`shrink-0 px-3.5 py-2 rounded-xl text-[11px] font-bold transition-all duration-200 cursor-pointer flex items-center gap-2
               ${filter === f.id
-                ? 'bg-blue-primary text-white'
-                : 'bg-white text-grey-muted border border-grey-border hover:bg-grey-bg'}`}>
+                ? `${f.color} text-white shadow-sm`
+                : 'bg-white text-grey-muted border border-grey-border/80 hover:bg-grey-bg active:scale-[0.97]'}`}>
             {f.label}
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${filter === f.id ? 'bg-white/25' : 'bg-grey-bg'}`}>
+            <span className={`min-w-5 h-5 flex items-center justify-center rounded-md text-[10px] font-bold ${
+              filter === f.id ? 'bg-white/20' : 'bg-grey-bg'
+            }`}>
               {counts[f.id]}
             </span>
           </button>
@@ -62,17 +73,22 @@ export default function Queue() {
 
       {/* Jobs List */}
       {filtered.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-5xl mb-3">📋</div>
-          <p className="text-grey-muted">No jobs match this filter</p>
+        <div className="text-center py-20">
+          <div className="w-16 h-16 rounded-2xl bg-grey-bg mx-auto mb-3 flex items-center justify-center text-3xl">📋</div>
+          <p className="text-grey-muted font-medium text-sm">No jobs match this filter</p>
+          <p className="text-grey-light text-xs mt-1">Try selecting a different category</p>
         </div>
       ) : (
-        filtered.map(job => (
-          <JobCard key={job.id} job={job} mechanic={mechMap[job.mechanicId]} />
-        ))
+        <div className="space-y-3">
+          {filtered.map((job, i) => (
+            <div key={job.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 40}ms` }}>
+              <JobCard job={job} mechanic={mechMap[job.mechanicId]} />
+            </div>
+          ))}
+        </div>
       )}
 
-      <p className="text-center text-xs text-grey-light mt-2">Swipe cards for quick actions</p>
+      <p className="text-center text-[10px] text-grey-light mt-4 font-medium">Tap cards for details</p>
     </div>
   );
 }

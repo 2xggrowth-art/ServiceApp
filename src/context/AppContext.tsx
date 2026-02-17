@@ -62,6 +62,7 @@ interface AppContextValue {
     partsPending: number;
     ready: number;
     qc: number;
+    unassigned: number;
     revenue: number;
     jobs: Job[];
   };
@@ -861,6 +862,7 @@ export function AppProvider({ children }) {
       partsPending: activeJobs.filter(j => j.status === STATUS.PARTS_PENDING).length,
       ready: activeJobs.filter(j => j.status === STATUS.READY).length,
       qc: activeJobs.filter(j => j.status === STATUS.QUALITY_CHECK).length,
+      unassigned: activeJobs.filter(j => j.status === STATUS.RECEIVED).length,
       revenue: completed.reduce((s, j) => s + (j.totalCost || 0), 0),
       jobs: activeJobs,
     };

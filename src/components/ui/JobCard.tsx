@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import type { ReactNode } from 'react';
-import Card from './Card';
 import { StatusBadge, ServiceBadge, PriorityBadge } from './Badge';
 import WhatsAppButton from './WhatsAppButton';
 import { formatTime, getToday } from '../../lib/helpers';
@@ -46,58 +45,67 @@ export default memo(function JobCard({ job, mechanic, actions, dimCompleted = fa
   const isUrgent = job.priority === 'urgent' && ![STATUS.COMPLETED, STATUS.READY].includes(job.status);
   const isDone = [STATUS.COMPLETED, STATUS.READY, STATUS.QUALITY_CHECK].includes(job.status);
 
-  const borderColor = isUrgent ? 'border-red-urgent' :
-    job.status === STATUS.PARTS_PENDING ? 'border-orange-action' :
-    job.status === STATUS.IN_PROGRESS ? 'border-blue-primary' :
-    isDone ? 'border-green-success' : 'border-grey-border';
+  const borderColor = isUrgent ? 'border-l-red-urgent' :
+    job.status === STATUS.PARTS_PENDING ? 'border-l-orange-action' :
+    job.status === STATUS.IN_PROGRESS ? 'border-l-blue-primary' :
+    isDone ? 'border-l-green-success' : 'border-l-gray-300';
 
   return (
-    <Card
-      bordered
-      borderColor={borderColor}
-      className={`mb-3 ${dimCompleted && isDone ? 'opacity-60' : ''}`}
-    >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2.5">
-          {job.photoBefore ? (
-            <img src={job.photoBefore} alt="" loading="lazy" className="w-9 h-9 rounded-lg object-cover" />
-          ) : (
-            <span className="text-2xl">🏍️</span>
-          )}
-          <div>
-            <h4 className="font-bold text-sm">{job.customerName}</h4>
-            <p className="text-xs text-grey-muted">{job.bike}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1.5">
+    <div className={`bg-white rounded-2xl p-4 shadow-card border-l-[5px] border-2 border-gray-100 ${borderColor} ${dimCompleted && isDone ? 'opacity-60' : ''}`}>
+      {/* Top badges row — prominent day + urgent */}
+      {(isCarryover || isUrgent) && (
+        <div className="flex items-center gap-1.5 mb-2.5">
+          {isUrgent && <PriorityBadge />}
           {isCarryover && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-action text-white">
+            <span className={`px-2.5 py-1 rounded-xl text-xs font-extrabold ${
+              dayNum >= 3 ? 'bg-red-urgent text-white' : 'bg-amber-500 text-white'
+            }`}>
               Day {dayNum}
             </span>
           )}
-          <ServiceBadge type={job.serviceType} />
         </div>
+      )}
+
+      {/* Header — bold, high contrast */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          {job.photoBefore ? (
+            <img src={job.photoBefore.startsWith('[') ? (JSON.parse(job.photoBefore)[0] || '') : job.photoBefore} alt="" loading="lazy" className="w-12 h-12 rounded-xl object-cover ring-2 ring-gray-200" />
+          ) : (
+            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-xl">🏍️</div>
+          )}
+          <div>
+            <h4 className="font-bold text-sm text-black leading-tight">{job.customerName}</h4>
+            <p className="text-xs text-black/60 mt-0.5 font-medium">{job.bike}</p>
+          </div>
+        </div>
+        <ServiceBadge type={job.serviceType} />
       </div>
 
-      {/* Meta */}
-      <div className="flex flex-wrap items-center gap-3 text-xs text-grey-muted mb-2">
-        <span>⏰ {formatTime(job.estimatedMin)}</span>
-        {mechanic && <span>👤 {mechanic.name}</span>}
-        {isUrgent && <PriorityBadge />}
+      {/* Meta row */}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-black/60 font-medium mb-3">
+        <span className="flex items-center gap-1">⏰ {formatTime(job.estimatedMin)}</span>
+        {mechanic && (
+          <span className="flex items-center gap-1.5">
+            <span className="w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ backgroundColor: mechanic.color || '#6b7280' }}>
+              {mechanic.name?.[0]}
+            </span>
+            {mechanic.name}
+          </span>
+        )}
         {job.status === STATUS.PARTS_PENDING && job.partsNeeded && (
-          <span className="text-orange-action">🔧 {job.partsNeeded.map(p => p.name).join(', ')}</span>
+          <span className="text-orange-action font-bold">🔧 {job.partsNeeded.map(p => p.name).join(', ')}</span>
         )}
       </div>
 
       {/* Issue */}
       {job.issue && (
-        <p className="text-xs text-grey-muted mb-3 leading-relaxed">{job.issue}</p>
+        <p className="text-xs text-black/60 mb-3 leading-relaxed line-clamp-2 font-medium">{job.issue}</p>
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between pt-2 border-t-2 border-gray-100">
+        <div className="flex items-center gap-2 mt-1.5">
           <StatusBadge status={job.status} />
           {(() => {
             const waStage = getWhatsAppStage(job.status);
@@ -111,8 +119,12 @@ export default memo(function JobCard({ job, mechanic, actions, dimCompleted = fa
             ) : null;
           })()}
         </div>
-        {actions && <div className="flex gap-2">{actions}</div>}
       </div>
-    </Card>
+
+      {/* Full-width actions slot */}
+      {actions && (
+        <div className="mt-3">{actions}</div>
+      )}
+    </div>
   );
 });

@@ -38,6 +38,43 @@ export const photoService = {
     return urlData.publicUrl;
   },
 
+  /** Upload multiple photos — returns URLs only (does NOT update job record) */
+  async uploadPhotosOnly(files: File[]): Promise<string[]> {
+    if (!config.useSupabase || !supabase || files.length === 0) return [];
+
+    const ts = Date.now();
+    const urls: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      try {
+        const compressed = await compressImage(files[i]);
+        const path = `jobs/pending/photo_${i}_${ts}.jpg`;
+        const { error } = await supabase.storage
+          .from(BUCKET)
+          .upload(path, compressed, { contentType: 'image/jpeg', upsert: true });
+        if (error) throw error;
+        const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
+        if (urlData.publicUrl) urls.push(urlData.publicUrl);
+      } catch (err) {
+        console.error(`[photoService] Failed to upload photo ${i}:`, err);
+      }
+    }
+    return urls;
+  },
+
+  /** Upload audio — returns URL only (does NOT update job record) */
+  async uploadAudioOnly(file: File): Promise<string | null> {
+    if (!config.useSupabase || !supabase) return null;
+
+    const ext = file.name.split('.').pop() || 'webm';
+    const path = `jobs/pending/voice_${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from(BUCKET)
+      .upload(path, file, { contentType: file.type || 'audio/webm', upsert: true });
+    if (error) throw error;
+    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
+    return urlData.publicUrl || null;
+  },
+
   /** Upload multiple photos and save URLs to job record */
   async uploadPhotos(
     jobId: string | number,

@@ -6,7 +6,7 @@ import { STATUS, STATUS_LABELS, STATUS_COLORS } from '../../lib/constants';
 import { config } from '../../lib/config';
 import { performanceService } from '../../services/performanceService';
 import Card from '../../components/ui/Card';
-import { IndianRupee, Clock, AlertTriangle, CheckCircle2, Truck, Bike, Wrench } from 'lucide-react';
+import { IndianRupee, Clock, AlertTriangle, CheckCircle2, Truck, Bike, Wrench, UserX } from 'lucide-react';
 import type { SlowJob } from '../../types/performance';
 
 const MemoStatCard = memo(StatCard);
@@ -61,13 +61,26 @@ export default function Dashboard() {
         <MemoStatCard icon={<Bike size={22} className="text-blue-primary" />} value={stats.totalJobs} label="Total Jobs" accent="bg-blue-primary" />
         <MemoStatCard icon={<CheckCircle2 size={22} className="text-green-success" />} value={stats.completed} label="Completed" accent="bg-green-success" />
         <MemoStatCard icon={<Wrench size={22} className="text-orange-action" />} value={stats.inProgress} label="In Progress" accent="bg-orange-action" />
+        <MemoStatCard icon={<UserX size={22} className="text-grey-muted" />} value={stats.unassigned} label="Unassigned" accent="bg-grey-muted" />
         <MemoStatCard icon={<AlertTriangle size={22} className="text-red-urgent" />} value={stats.partsPending} label="Parts Pending" accent="bg-red-urgent" />
       </div>
 
       {/* Alerts Section */}
-      {(stats.qc > 0 || stats.partsPending > 0 || stats.ready > 0) && (
+      {(stats.unassigned > 0 || stats.qc > 0 || stats.partsPending > 0 || stats.ready > 0) && (
         <div className="space-y-2">
           <h3 className="text-[13px] font-semibold text-grey-muted uppercase tracking-widest mt-6 mb-3">Alerts</h3>
+
+          {stats.unassigned > 0 && (
+            <Card bordered borderColor="border-grey-muted" className="flex items-center gap-3 group">
+              <div className="w-10 h-10 bg-grey-bg rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                <UserX size={18} className="text-grey-muted" />
+              </div>
+              <div className="flex-1">
+                <div className="text-[15px] font-bold leading-snug">{stats.unassigned} bike(s) unassigned</div>
+                <div className="text-[11px] text-grey-muted mt-0.5">Assign to a mechanic</div>
+              </div>
+            </Card>
+          )}
 
           {stats.qc > 0 && (
             <Card bordered borderColor="border-purple-qc" className="flex items-center gap-3 group">

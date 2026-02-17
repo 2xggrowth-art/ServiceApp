@@ -126,6 +126,7 @@ export default function AppLayout() {
   };
 
   const navItems = NAV_CONFIG[role] || [];
+  const isMechanic = role === ROLES.MECHANIC;
 
   // Mock mode: cycle through roles
   const switchRole = () => {
@@ -192,21 +193,29 @@ export default function AppLayout() {
         </div>
       )}
 
-      {/* Header — dark slate for admin/owner, blue for others */}
-      <header className={`sticky top-0 z-40 text-white px-4 py-3 transition-colors ${
-        role === ROLES.OWNER || role === ROLES.ADMIN ? 'bg-admin-dark' : 'bg-blue-primary'
+      {/* Header — clean white for staff, dark slate for admin/owner, blue gradient for mechanic */}
+      <header className={`sticky top-0 z-40 px-4 py-3 transition-colors ${
+        role === ROLES.OWNER || role === ROLES.ADMIN
+          ? 'bg-admin-dark text-white'
+          : role === ROLES.STAFF
+            ? 'bg-white text-grey-text border-b border-grey-border'
+            : 'bg-gradient-to-r from-blue-primary to-blue-600 text-white'
       }`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <img src="/bchvideowatermarkredandwhite.png" alt="BCH" className="h-9 w-9 rounded-lg bg-white p-0.5 object-contain" />
+          <div className="flex items-center gap-3">
+            <img src="/bchvideowatermarkredandwhite.png" alt="BCH" className={`h-9 w-9 rounded-xl object-contain ${
+              role === ROLES.STAFF ? 'bg-grey-bg p-0.5' : 'bg-white/90 p-0.5'
+            }`} />
             <div>
-              <h1 className="text-[1.1rem] font-bold leading-tight tracking-tight">Bharath Cycle Hub</h1>
-              <p className="text-xs opacity-85 mt-0.5">
+              <h1 className="text-[1.05rem] font-extrabold leading-tight tracking-tight">Bharath Cycle Hub</h1>
+              <p className={`text-[11px] mt-0.5 font-medium ${
+                role === ROLES.STAFF ? 'text-grey-muted' : 'opacity-80'
+              }`}>
                 {auth?.appUser ? `${auth.appUser.name} — ${ROLE_LABELS[role]}` : ROLE_LABELS[role]}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {/* Mechanic Duty Toggle */}
             {role === ROLES.MECHANIC && currentMechanic && (
               <button
@@ -230,17 +239,21 @@ export default function AppLayout() {
             {installPrompt && (
               <button
                 onClick={handleInstall}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition-colors cursor-pointer"
+                className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors cursor-pointer ${
+                  role === ROLES.STAFF ? 'bg-grey-bg hover:bg-grey-border text-grey-muted' : 'bg-white/15 hover:bg-white/25'
+                }`}
                 title="Install App"
               >
                 <Download size={16} />
               </button>
             )}
 
-            <button className="relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/15 transition-colors cursor-pointer">
-              <Bell size={20} />
+            <button className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-colors cursor-pointer ${
+              role === ROLES.STAFF ? 'bg-grey-bg hover:bg-grey-border text-grey-muted' : 'hover:bg-white/15'
+            }`}>
+              <Bell size={18} />
               {notifCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-red-urgent rounded-full text-[10px] font-bold flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] bg-red-urgent text-white rounded-full text-[9px] font-bold flex items-center justify-center ring-2 ring-white">
                   {notifCount}
                 </span>
               )}
@@ -249,8 +262,10 @@ export default function AppLayout() {
             {config.useSupabase ? (
               /* Supabase mode: show user avatar + logout */
               <button
-                className="w-[34px] h-[34px] rounded-full border-2 border-white/50 text-sm font-bold flex items-center justify-center hover:bg-white/30 transition-colors cursor-pointer"
-                style={{ backgroundColor: auth?.appUser?.color || 'rgba(255,255,255,0.2)' }}
+                className={`w-9 h-9 rounded-xl text-sm font-bold flex items-center justify-center transition-colors cursor-pointer ${
+                  role === ROLES.STAFF ? 'bg-grey-bg hover:bg-grey-border text-grey-muted' : 'bg-white/15 hover:bg-white/25 border border-white/20'
+                }`}
+                style={role !== ROLES.STAFF ? { backgroundColor: auth?.appUser?.color || 'rgba(255,255,255,0.15)' } : undefined}
                 onClick={handleLogout}
                 title="Logout"
               >
@@ -259,7 +274,9 @@ export default function AppLayout() {
             ) : (
               /* Mock mode: role switcher */
               <button
-                className="w-[34px] h-[34px] rounded-full bg-white/20 border-2 border-white/50 text-sm font-bold flex items-center justify-center hover:bg-white/30 transition-colors cursor-pointer"
+                className={`w-9 h-9 rounded-xl text-sm font-bold flex items-center justify-center transition-colors cursor-pointer ${
+                  role === ROLES.STAFF ? 'bg-grey-bg hover:bg-grey-border text-grey-muted' : 'bg-white/15 hover:bg-white/25 border border-white/20'
+                }`}
                 onClick={switchRole}
                 title="Switch Role"
               >
@@ -270,45 +287,43 @@ export default function AppLayout() {
         </div>
       </header>
 
-      {/* Tab Bar */}
-      <div className="sticky top-[56px] z-30 bg-white/95 backdrop-blur-sm border-b border-grey-border flex overflow-x-auto scrollbar-hide">
-        {navItems.map(item => {
-          const isActive = location.pathname === item.path;
-          const isAdmin = role === ROLES.OWNER || role === ROLES.ADMIN;
-          return (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={`flex-1 min-w-0 py-3 text-[0.78rem] font-semibold text-center transition-all duration-200 border-b-[2.5px] cursor-pointer whitespace-nowrap
-                ${isActive
-                  ? isAdmin ? 'text-grey-text border-grey-text' : 'text-blue-primary border-blue-primary'
-                  : 'text-grey-muted border-transparent hover:text-grey-text'}`}
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
 
       {/* Page Content */}
       <main className="px-4 pt-5 pb-4">
         <Outlet />
       </main>
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 z-40 w-full max-w-[430px] bg-white/95 backdrop-blur-sm border-t border-grey-border flex py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      {/* Bottom Nav — larger icons + glow for mechanic role */}
+      <nav className={`fixed bottom-0 left-1/2 -translate-x-1/2 z-40 w-full max-w-[430px] backdrop-blur-md border-t flex pb-[max(0.375rem,env(safe-area-inset-bottom))] ${
+        isMechanic ? 'bg-white border-gray-200 py-1.5' : 'bg-white/98 border-grey-border/60 py-1'
+      }`}>
         {navItems.map(item => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
+          const iconSize = isMechanic ? 24 : 20;
           return (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 min-h-[56px] cursor-pointer transition-colors
-                ${isActive ? 'text-blue-primary' : 'text-grey-light hover:text-grey-muted'}`}
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-all duration-200 relative
+                ${isMechanic ? 'min-h-16 py-2' : 'min-h-13 py-1.5'}
+                ${isActive
+                  ? isMechanic ? 'text-blue-primary' : 'text-blue-primary'
+                  : 'text-grey-light hover:text-grey-muted'}`}
             >
-              <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
-              <span className="text-[10px] font-semibold">{item.label}</span>
+              <div className={`rounded-xl transition-all duration-200 ${
+                isMechanic ? 'p-2' : 'p-1.5'
+              } ${isActive
+                ? isMechanic
+                  ? 'bg-blue-primary/15 shadow-[0_0_12px_rgba(37,99,235,0.3)]'
+                  : 'bg-blue-light'
+                : ''
+              }`}>
+                <Icon size={iconSize} strokeWidth={isActive ? 2.5 : 1.8} />
+              </div>
+              <span className={`font-semibold ${
+                isMechanic ? 'text-[10px]' : 'text-[9px]'
+              } ${isActive ? 'font-bold' : ''}`}>{item.label}</span>
             </button>
           );
         })}

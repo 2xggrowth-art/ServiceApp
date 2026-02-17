@@ -4,17 +4,17 @@ import type { JobStatus } from '../../types';
 const statusStyles: Record<string, string> = {
   grey:   'bg-gray-100 text-gray-600',
   blue:   'bg-blue-light text-blue-primary',
-  orange: 'bg-orange-light text-orange-action',
+  orange: 'bg-amber-50 text-amber-600',
   purple: 'bg-purple-light text-purple-qc',
-  green:  'bg-green-light text-green-success',
+  green:  'bg-emerald-50 text-emerald-600',
 };
 
 const dotStyles: Record<string, string> = {
   grey:   'bg-gray-400',
   blue:   'bg-blue-primary',
-  orange: 'bg-orange-action',
+  orange: 'bg-amber-500',
   purple: 'bg-purple-qc',
-  green:  'bg-green-success',
+  green:  'bg-emerald-500',
 };
 
 export function StatusBadge({ status }: { status: JobStatus }) {
@@ -22,8 +22,8 @@ export function StatusBadge({ status }: { status: JobStatus }) {
   const isActive = status === 'in_progress';
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyles[color]}`}>
-      <span className={`w-2 h-2 rounded-full ${dotStyles[color]} ${isActive ? 'animate-pulse-dot' : ''}`} />
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold tracking-wide ${statusStyles[color]}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[color]} ${isActive ? 'animate-pulse-dot' : ''}`} />
       {STATUS_LABELS[status] || status}
     </span>
   );
@@ -34,14 +34,14 @@ export function ServiceBadge({ type }: { type: string }) {
   if (!st) return null;
 
   const badgeColors: Record<string, string> = {
-    regular:   'bg-blue-light text-blue-primary',
-    repair:    'bg-orange-light text-orange-action',
-    makeover:  'bg-purple-light text-purple-qc',
-    insurance: 'bg-green-light text-green-success',
+    regular:   'bg-blue-light/70 text-blue-primary',
+    repair:    'bg-orange-light/70 text-orange-action',
+    makeover:  'bg-purple-light/70 text-purple-qc',
+    insurance: 'bg-green-light/70 text-green-success',
   };
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${badgeColors[type]}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold ${badgeColors[type]}`}>
       {st.icon} {st.label}
     </span>
   );
@@ -49,7 +49,7 @@ export function ServiceBadge({ type }: { type: string }) {
 
 export function PriorityBadge() {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-red-light text-red-urgent">
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-extrabold bg-red-urgent/10 text-red-urgent border border-red-urgent/20">
       🚨 URGENT
     </span>
   );
