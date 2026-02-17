@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { STATUS, SERVICE_TYPES } from '../../lib/constants';
 import { formatCurrency } from '../../lib/helpers';
 import { ServiceBadge } from '../../components/ui/Badge';
+import WhatsAppButton from '../../components/ui/WhatsAppButton';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 
@@ -95,7 +96,10 @@ export default function Pickup() {
                 <div className="font-bold text-sm">{job.customerName}</div>
                 <div className="text-xs text-grey-muted">{job.bike}</div>
               </div>
-              <ServiceBadge type={job.serviceType} />
+              <div className="flex items-center gap-2">
+                <WhatsAppButton phone={job.customerPhone} stage="ready" customerName={job.customerName} bike={job.bike} />
+                <ServiceBadge type={job.serviceType} />
+              </div>
             </div>
 
             {/* Before/After Photos */}

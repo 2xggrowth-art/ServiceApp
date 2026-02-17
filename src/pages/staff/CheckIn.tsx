@@ -11,6 +11,7 @@ import Button from '../../components/ui/Button';
 import MultiPhotoCapture from '../../components/ui/MultiPhotoCapture';
 import VoiceInput from '../../components/ui/VoiceInput';
 import { ChevronDown, X, Plus, Minus, Trash2 } from 'lucide-react';
+import { openWhatsApp } from '../../lib/whatsapp';
 
 interface PartLine {
   name: string;
@@ -185,6 +186,10 @@ export default function CheckIn() {
       }
       const mech = job ? mechanics.find(m => m.id === job.mechanicId) : null;
       showToast(`Checked in! ${mech?.name ? `Assigned to ${mech.name}` : 'Added to queue'}`, 'success');
+      // Open WhatsApp to notify customer
+      if (form.customerPhone) {
+        openWhatsApp(form.customerPhone, 'received', form.customerName, form.bike);
+      }
       setForm({ customerName: '', customerPhone: '', customerId: '', bike: '', bikeId: '', serviceType: 'regular', totalCharge: '', issue: '', priority: 'standard' });
       setSelectedService(null);
       setPartLines([]);

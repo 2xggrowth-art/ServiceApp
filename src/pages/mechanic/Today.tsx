@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { STATUS } from '../../lib/constants';
 import { getToday } from '../../lib/helpers';
+import { openWhatsApp } from '../../lib/whatsapp';
 import JobCard from '../../components/ui/JobCard';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
@@ -45,6 +46,10 @@ export default function Today() {
     try {
       await pickJob(jobId);
       showToast('Job picked! Timer started.', 'success');
+      const job = myJobs.find(j => j.id === jobId) || unassignedJobs.find(j => j.id === jobId);
+      if (job?.customerPhone) {
+        openWhatsApp(job.customerPhone, 'in_progress', job.customerName, job.bike);
+      }
       navigate('/mechanic/active');
     } catch {
       // Error toast shown by context
@@ -55,6 +60,10 @@ export default function Today() {
     try {
       await startJob(jobId);
       showToast('Job started! Timer running.', 'info');
+      const job = myJobs.find(j => j.id === jobId);
+      if (job?.customerPhone) {
+        openWhatsApp(job.customerPhone, 'in_progress', job.customerName, job.bike);
+      }
       navigate('/mechanic/active');
     } catch {
       // Error toast shown by context

@@ -16,7 +16,7 @@ import { userService } from '../services/userService';
 import { partsService } from '../services/partsService';
 import { serviceOptionsService } from '../services/serviceOptionsService';
 import { activityLogService } from '../services/activityLogService';
-import { whatsappService } from '../services/whatsappService';
+// WhatsApp notifications now use wa.me links (see src/lib/whatsapp.ts)
 import { zohoService } from '../services/zohoService';
 import type { Job, Mechanic, Part } from '../types';
 import type { ServiceOption } from '../services/serviceOptionsService';
@@ -528,13 +528,7 @@ export function AppProvider({ children }) {
     // Optimistic local update (realtime will also deliver it)
     setJobs(prev => [...prev, created]);
     activityLogService.log('job_created', { jobId: created.id, userId: auth?.appUser?.id }).catch(() => {});
-    // Integration stubs (no-op when disabled)
-    if (created.customerPhone) {
-      whatsappService.sendJobUpdate(created.customerPhone, 'job_received', {
-        name: created.customerName,
-        bike: created.bike,
-      }).catch(() => {});
-    }
+    // WhatsApp notification is handled in CheckIn/NewService via wa.me links
     return created;
   }, [auth?.appUser?.id]);
 
@@ -657,11 +651,7 @@ export function AppProvider({ children }) {
       try {
         await jobService.updateJobStatus(jobId as string, 'ready', { qcStatus: 'passed' });
         activityLogService.log('qc_passed', { jobId: jobId as string, userId: auth?.appUser?.id }).catch(() => {});
-        // Notify customer that bike is ready for pickup
-        const readyJob = jobs.find(j => j.id === jobId);
-        if (readyJob?.customerPhone) {
-          whatsappService.sendReadyNotification(readyJob.customerPhone, jobId as string).catch(() => {});
-        }
+        // WhatsApp "ready" notification is handled in QualityCheck.tsx via wa.me links
       } catch {
         setJobs(prev => prev.map(j =>
           j.id === jobId ? { ...j, status: STATUS.QUALITY_CHECK, qcStatus: undefined } : j

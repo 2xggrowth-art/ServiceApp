@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { STATUS } from '../../lib/constants';
+import { openWhatsApp } from '../../lib/whatsapp';
 import JobCard from '../../components/ui/JobCard';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
@@ -33,6 +34,10 @@ export default function QualityCheck() {
     try {
       await qcPassJob(qcJob.id);
       showToast('QC passed! Bike ready for pickup.', 'success');
+      // Notify customer via WhatsApp
+      if (qcJob.customerPhone) {
+        openWhatsApp(qcJob.customerPhone, 'ready', qcJob.customerName, qcJob.bike);
+      }
       setQcModalOpen(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'QC pass failed';

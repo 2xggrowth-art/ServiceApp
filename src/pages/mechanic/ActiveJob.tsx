@@ -7,6 +7,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
 import { Wrench, Package, Image, Volume2 } from 'lucide-react';
+import { openWhatsApp } from '../../lib/whatsapp';
 
 /** Parse photoBefore field: could be JSON array of URLs or single URL */
 function parsePhotoUrls(val?: string): string[] {
@@ -82,6 +83,10 @@ export default function ActiveJob() {
       setPartsUsed([]);
       const needsQc = ['repair', 'makeover'].includes(activeJob.serviceType);
       showToast(needsQc ? 'Sent for QC check!' : 'Job completed!', 'success');
+      // Notify customer via WhatsApp
+      if (activeJob.customerPhone) {
+        openWhatsApp(activeJob.customerPhone, needsQc ? 'quality_check' : 'ready', activeJob.customerName, activeJob.bike);
+      }
       navigate('/mechanic/today');
     } catch {
       // Error toast shown by context

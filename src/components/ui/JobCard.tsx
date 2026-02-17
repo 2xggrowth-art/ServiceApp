@@ -2,9 +2,28 @@ import { memo } from 'react';
 import type { ReactNode } from 'react';
 import Card from './Card';
 import { StatusBadge, ServiceBadge, PriorityBadge } from './Badge';
+import WhatsAppButton from './WhatsAppButton';
 import { formatTime, getToday } from '../../lib/helpers';
 import { STATUS } from '../../lib/constants';
+import type { WhatsAppStage } from '../../lib/whatsapp';
 import type { Job, Mechanic } from '../../types';
+
+/** Map job status to WhatsApp message stage (null = no WA button) */
+function getWhatsAppStage(status: string): WhatsAppStage | null {
+  switch (status) {
+    case STATUS.RECEIVED:
+    case STATUS.ASSIGNED:
+      return 'received';
+    case STATUS.IN_PROGRESS:
+      return 'in_progress';
+    case STATUS.QUALITY_CHECK:
+      return 'quality_check';
+    case STATUS.READY:
+      return 'ready';
+    default:
+      return null;
+  }
+}
 
 interface JobCardProps {
   job: Job;
@@ -78,7 +97,20 @@ export default memo(function JobCard({ job, mechanic, actions, dimCompleted = fa
 
       {/* Footer */}
       <div className="flex items-center justify-between">
-        <StatusBadge status={job.status} />
+        <div className="flex items-center gap-2">
+          <StatusBadge status={job.status} />
+          {(() => {
+            const waStage = getWhatsAppStage(job.status);
+            return waStage ? (
+              <WhatsAppButton
+                phone={job.customerPhone}
+                stage={waStage}
+                customerName={job.customerName}
+                bike={job.bike}
+              />
+            ) : null;
+          })()}
+        </div>
         {actions && <div className="flex gap-2">{actions}</div>}
       </div>
     </Card>
