@@ -4,7 +4,7 @@ import { serviceOptionsService } from '../../services/serviceOptionsService';
 import type { ServiceOption } from '../../services/serviceOptionsService';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { ChevronUp, ChevronDown, Pencil, Trash2, Plus, Check, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, Pencil, Trash2, Plus, Check, X, Search } from 'lucide-react';
 
 type Tab = 'service' | 'part';
 
@@ -18,6 +18,9 @@ export default function ServiceOptions() {
   const [newName, setNewName] = useState('');
   const [newPrice, setNewPrice] = useState('');
   const [adding, setAdding] = useState(false);
+
+  // Search
+  const [search, setSearch] = useState('');
 
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -42,6 +45,7 @@ export default function ServiceOptions() {
 
   const filtered = items
     .filter(i => i.type === tab)
+    .filter(i => !search.trim() || i.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   // Add item
@@ -153,19 +157,36 @@ export default function ServiceOptions() {
       {/* Tab Toggle — iOS-style pill selector */}
       <div className="flex gap-1 bg-grey-bg rounded-2xl p-1.5">
         <button
-          onClick={() => setTab('service')}
+          onClick={() => { setTab('service'); setSearch(''); }}
           className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all duration-200 cursor-pointer
             ${tab === 'service' ? 'bg-white text-grey-text shadow-card' : 'text-grey-muted hover:text-grey-text'}`}
         >
           Services
         </button>
         <button
-          onClick={() => setTab('part')}
+          onClick={() => { setTab('part'); setSearch(''); }}
           className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all duration-200 cursor-pointer
             ${tab === 'part' ? 'bg-white text-grey-text shadow-card' : 'text-grey-muted hover:text-grey-text'}`}
         >
           Parts
         </button>
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-grey-muted" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder={`Search ${tab === 'service' ? 'services' : 'parts'}...`}
+          className="w-full pl-9 pr-8 py-2.5 border border-grey-border rounded-xl text-sm bg-white"
+        />
+        {search && (
+          <button onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-grey-muted cursor-pointer hover:text-grey-text">
+            <X size={14} />
+          </button>
+        )}
       </div>
 
       {/* Items List — Grouped */}

@@ -13,15 +13,16 @@ import {
   LayoutDashboard, Users, UserCheck, Phone, Settings,
   CalendarDays, Timer, CalendarPlus, BarChart3,
   ClipboardList, PlusCircle, Wallet, Wrench, Bell,
-  WifiOff, LogOut, CloudOff, Download
+  WifiOff, LogOut, CloudOff, Download, ShieldCheck
 } from 'lucide-react';
 
 const ADMIN_NAV = [
   { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/admin/assign',    icon: UserCheck,       label: 'Assign' },
   { path: '/admin/team',      icon: Users,           label: 'Team' },
-  { path: '/admin/customers', icon: Phone,           label: 'Customers' },
+  { path: '/staff/qc',        icon: ShieldCheck,     label: 'QC' },
   { path: '/admin/services',  icon: Settings,        label: 'Services' },
+  { path: '/admin/customers', icon: Phone,           label: 'Customers' },
 ];
 
 const NAV_CONFIG: Record<string, typeof ADMIN_NAV> = {
@@ -30,6 +31,7 @@ const NAV_CONFIG: Record<string, typeof ADMIN_NAV> = {
     { path: '/staff/queue',   icon: ClipboardList,  label: 'Queue' },
     { path: '/staff/pickup',  icon: Wallet,         label: 'Pickup' },
     { path: '/staff/parts',   icon: Wrench,         label: 'Parts' },
+    { path: '/staff/qc',      icon: ShieldCheck,    label: 'QC' },
   ],
   mechanic: [
     { path: '/mechanic/today',  icon: CalendarDays,  label: 'Today' },

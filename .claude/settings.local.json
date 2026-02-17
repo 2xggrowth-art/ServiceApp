@@ -28,7 +28,9 @@
       "Bash(npx vercel:*)",
       "Bash(npm ls:*)",
       "Bash(python:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(printf:*)",
+      "Bash(npx supabase login --help:*)"
     ]
   }
 }

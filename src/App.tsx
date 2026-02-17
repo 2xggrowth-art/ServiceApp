@@ -12,6 +12,7 @@ import CheckIn from './pages/staff/CheckIn';
 import Queue from './pages/staff/Queue';
 import Pickup from './pages/staff/Pickup';
 import StaffParts from './pages/staff/Parts';
+import QualityCheck from './pages/staff/QualityCheck';
 
 import Dashboard from './pages/admin/Dashboard';
 import Assign from './pages/admin/Assign';
@@ -67,6 +68,7 @@ function AppRoutes() {
           <Route path="/staff/queue" element={<Queue />} />
           <Route path="/staff/pickup" element={<Pickup />} />
           <Route path="/staff/parts" element={<StaffParts />} />
+          <Route path="/staff/qc" element={<QualityCheck />} />
         </Route>
 
         {/* Admin routes — owner and admin only */}
