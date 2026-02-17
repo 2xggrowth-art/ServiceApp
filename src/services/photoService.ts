@@ -1,10 +1,12 @@
 // ============================================================
 // photoService.ts — Upload/retrieve photos & audio via Supabase Storage
+// Saves URLs to job record so all roles can see them
 // ============================================================
 
 import { supabase } from '../lib/supabase';
 import { config } from '../lib/config';
 import { compressImage } from '../lib/imageUtils';
+import { jobService } from './jobService';
 
 const BUCKET = 'job-photos';
 
@@ -36,7 +38,7 @@ export const photoService = {
     return urlData.publicUrl;
   },
 
-  /** Upload multiple photos for a job, returns array of public URLs */
+  /** Upload multiple photos and save URLs to job record */
   async uploadPhotos(
     jobId: string | number,
     files: File[]
@@ -52,10 +54,22 @@ export const photoService = {
         console.error(`[photoService] Failed to upload photo ${i}:`, err);
       }
     }
+
+    // Save photo URLs to job record (photo_before field as JSON array)
+    if (urls.length > 0) {
+      try {
+        await jobService.updateJobStatus(jobId as string, undefined, {
+          photoBefore: JSON.stringify(urls),
+        });
+      } catch (err) {
+        console.error('[photoService] Failed to save photo URLs to job:', err);
+      }
+    }
+
     return urls;
   },
 
-  /** Upload audio file for a job, returns public URL */
+  /** Upload audio file and save URL to job record */
   async uploadAudio(
     jobId: string | number,
     file: File
@@ -78,57 +92,20 @@ export const photoService = {
       .from(BUCKET)
       .getPublicUrl(path);
 
-    return urlData.publicUrl;
-  },
+    const audioUrl = urlData.publicUrl;
 
-  /** List all photos for a job from storage */
-  async listJobPhotos(jobId: string | number): Promise<string[]> {
-    if (!config.useSupabase || !supabase) return [];
-
-    try {
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .list(`jobs/${jobId}`, { limit: 20 });
-
-      if (error) throw error;
-      if (!data) return [];
-
-      const photoFiles = data.filter(f => f.name.startsWith('photo_') || f.name.startsWith('before_') || f.name.startsWith('after_'));
-      return photoFiles.map(f => {
-        const { data: urlData } = supabase.storage
-          .from(BUCKET)
-          .getPublicUrl(`jobs/${jobId}/${f.name}`);
-        return urlData.publicUrl;
-      });
-    } catch (err) {
-      console.error('[photoService] Failed to list photos:', err);
-      return [];
+    // Save audio URL to job record (photo_after field)
+    if (audioUrl) {
+      try {
+        await jobService.updateJobStatus(jobId as string, undefined, {
+          photoAfter: audioUrl,
+        });
+      } catch (err) {
+        console.error('[photoService] Failed to save audio URL to job:', err);
+      }
     }
-  },
 
-  /** List all audio files for a job from storage */
-  async listJobAudio(jobId: string | number): Promise<string[]> {
-    if (!config.useSupabase || !supabase) return [];
-
-    try {
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .list(`jobs/${jobId}`, { limit: 20 });
-
-      if (error) throw error;
-      if (!data) return [];
-
-      const audioFiles = data.filter(f => f.name.startsWith('voice_'));
-      return audioFiles.map(f => {
-        const { data: urlData } = supabase.storage
-          .from(BUCKET)
-          .getPublicUrl(`jobs/${jobId}/${f.name}`);
-        return urlData.publicUrl;
-      });
-    } catch (err) {
-      console.error('[photoService] Failed to list audio:', err);
-      return [];
-    }
+    return audioUrl;
   },
 
   getPublicUrl(path: string): string | null {

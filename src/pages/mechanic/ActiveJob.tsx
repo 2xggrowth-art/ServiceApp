@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { STATUS, SERVICE_TYPES } from '../../lib/constants';
@@ -6,13 +6,21 @@ import { formatCurrency } from '../../lib/helpers';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
-import { photoService } from '../../services/photoService';
 import { Wrench, Package, Image, Volume2 } from 'lucide-react';
+
+/** Parse photoBefore field: could be JSON array of URLs or single URL */
+function parsePhotoUrls(val?: string): string[] {
+  if (!val) return [];
+  if (val.startsWith('[')) {
+    try { return JSON.parse(val); } catch { return []; }
+  }
+  return [val];
+}
 
 export default function ActiveJob() {
   const {
     getMechanicJobs, currentMechanicId, completeJob, markPartsNeeded,
-    pauseJob, resumeJob, showToast, parts, partsList, partsItems
+    pauseJob, resumeJob, showToast, parts, partsList, partsItems, serviceItems
   } = useApp();
   const navigate = useNavigate();
 
@@ -25,32 +33,11 @@ export default function ActiveJob() {
   const [selectedPartId, setSelectedPartId] = useState('');
   const [partQty, setPartQty] = useState(1);
 
-  // Photos & audio loaded from storage
-  const [jobPhotos, setJobPhotos] = useState<string[]>([]);
-  const [jobAudioUrls, setJobAudioUrls] = useState<string[]>([]);
-  const [loadingMedia, setLoadingMedia] = useState(false);
-  const loadedJobId = useRef<string | number | null>(null);
-
   // Load existing parts
   useEffect(() => {
     if (activeJob?.partsUsed?.length > 0 && partsUsed.length === 0) {
       setPartsUsed([...activeJob.partsUsed]);
     }
-  }, [activeJob?.id]);
-
-  // Load photos & audio from storage when job changes
-  useEffect(() => {
-    if (!activeJob?.id || loadedJobId.current === activeJob.id) return;
-    loadedJobId.current = activeJob.id;
-    setLoadingMedia(true);
-
-    Promise.all([
-      photoService.listJobPhotos(activeJob.id),
-      photoService.listJobAudio(activeJob.id),
-    ]).then(([photos, audio]) => {
-      setJobPhotos(photos);
-      setJobAudioUrls(audio);
-    }).finally(() => setLoadingMedia(false));
   }, [activeJob?.id]);
 
   const handleAddPart = () => {
@@ -115,7 +102,11 @@ export default function ActiveJob() {
   const jobServices = activeJob.services || [];
   const jobCheckinParts = activeJob.checkinParts || [];
 
-  // Deduplicate checkinParts for bill display: count qty per part name
+  // Parse photos and audio from job record
+  const jobPhotos = parsePhotoUrls(activeJob.photoBefore);
+  const audioUrl = activeJob.photoAfter || '';
+
+  // Deduplicate checkinParts for bill display
   const checkinPartsBill: { name: string; qty: number; price: number }[] = [];
   const partCountMap: Record<string, number> = {};
   for (const name of jobCheckinParts) {
@@ -126,44 +117,68 @@ export default function ActiveJob() {
     checkinPartsBill.push({ name, qty, price });
   }
 
-  // Calculate totals for bill
-  const servicePrice = jobServices.reduce((sum, svc) => {
-    const item = partsItems ? undefined : undefined; // services use serviceItems
-    return sum;
-  }, 0);
   const laborCharge = activeJob.laborCharge ?? 0;
   const checkinPartsTotal = checkinPartsBill.reduce((sum, p) => sum + p.price * p.qty, 0);
 
   return (
     <div className="space-y-4">
-      {/* Job Info with amount */}
-      <Card className="text-center">
+      {/* Job Info */}
+      <Card className="text-center space-y-2">
         <h3 className="font-bold text-lg">{activeJob.bike}</h3>
         <p className="text-sm text-grey-muted">{activeJob.customerName}</p>
-        {activeJob.issue && (
-          <p className="text-xs text-grey-muted mt-1 italic">"{activeJob.issue}"</p>
+
+        {/* Service type — big bold display */}
+        {jobServices.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-2 pt-1">
+            {jobServices.map((svc, i) => {
+              const svcPrice = serviceItems?.find(s => s.name === svc)?.price || 0;
+              return (
+                <div key={`svc-${i}`} className="bg-blue-primary text-white px-4 py-2 rounded-xl">
+                  <span className="text-base font-bold">{svc}</span>
+                  {svcPrice > 0 && <span className="text-sm ml-1.5 opacity-80">₹{svcPrice}</span>}
+                </div>
+              );
+            })}
+          </div>
         )}
+
+        {activeJob.issue && (
+          <p className="text-xs text-grey-muted italic">"{activeJob.issue}"</p>
+        )}
+
         {laborCharge > 0 && (
-          <div className="mt-2 inline-block bg-blue-light rounded-xl px-4 py-2">
-            <span className="text-lg font-bold text-blue-primary">{formatCurrency(laborCharge)}</span>
-            <span className="text-xs text-blue-primary/70 ml-1">total charge</span>
+          <div className="inline-block bg-green-success/10 rounded-xl px-5 py-2.5">
+            <span className="text-xl font-bold text-green-success">{formatCurrency(laborCharge)}</span>
+            <span className="text-xs text-green-success/70 ml-1">total</span>
           </div>
         )}
       </Card>
 
-      {/* Services from check-in */}
-      {jobServices.length > 0 && (
+      {/* Check-in Photos */}
+      {jobPhotos.length > 0 && (
         <div>
           <h4 className="text-sm font-bold text-grey-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Wrench size={14} /> Services
+            <Image size={14} /> Check-in Photos
           </h4>
-          <div className="flex flex-wrap gap-1.5">
-            {jobServices.map((svc, i) => (
-              <span key={`svc-${i}`} className="bg-blue-light text-blue-primary text-xs font-semibold px-2.5 py-1 rounded-lg">
-                {svc}
-              </span>
+          <div className="flex flex-wrap gap-2">
+            {jobPhotos.map((url, i) => (
+              <div key={i} className="w-24 h-24 rounded-xl overflow-hidden border border-grey-border">
+                <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+              </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Voice Note */}
+      {audioUrl && (
+        <div>
+          <h4 className="text-sm font-bold text-grey-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Volume2 size={14} /> Voice Note
+          </h4>
+          <audio controls className="w-full h-10" preload="metadata">
+            <source src={audioUrl} />
+          </audio>
         </div>
       )}
 
@@ -192,42 +207,6 @@ export default function ActiveJob() {
                 <span className="text-sm font-bold text-orange-action">₹{checkinPartsTotal}</span>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Photos from storage */}
-      {(jobPhotos.length > 0 || loadingMedia) && (
-        <div>
-          <h4 className="text-sm font-bold text-grey-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Image size={14} /> Photos
-          </h4>
-          {loadingMedia ? (
-            <div className="text-xs text-grey-muted">Loading photos...</div>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {jobPhotos.map((url, i) => (
-                <div key={i} className="w-20 h-20 rounded-xl overflow-hidden border border-grey-border">
-                  <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Audio from storage */}
-      {jobAudioUrls.length > 0 && (
-        <div>
-          <h4 className="text-sm font-bold text-grey-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Volume2 size={14} /> Voice Notes
-          </h4>
-          <div className="space-y-2">
-            {jobAudioUrls.map((url, i) => (
-              <audio key={i} controls className="w-full h-10" preload="metadata">
-                <source src={url} />
-              </audio>
-            ))}
           </div>
         </div>
       )}

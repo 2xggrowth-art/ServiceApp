@@ -88,6 +88,8 @@ export const jobService = {
         p_labor_charge: jobData.laborCharge != null ? Number(jobData.laborCharge) : null,
         p_services: JSON.stringify(jobData.services || []),
         p_checkin_parts: JSON.stringify(jobData.checkinParts || []),
+        p_photo_before: jobData.photoBefore || null,
+        p_photo_after: jobData.photoAfter || null,
       });
       if (error) {
         console.error('[createJob] RPC error:', error.message, error.code, error);
