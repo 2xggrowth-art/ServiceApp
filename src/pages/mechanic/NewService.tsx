@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, forwardRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import Button from '../../components/ui/Button';
@@ -233,7 +233,19 @@ interface MultiSelectDropdownProps {
 
 const MultiSelectDropdown = forwardRef<HTMLDivElement, MultiSelectDropdownProps>(
   ({ isOpen, onToggle, options, optionItems, selected, onToggleOption, placeholder }, ref) => {
+    const [search, setSearch] = useState('');
+    const searchRef = useRef<HTMLInputElement>(null);
     const getPrice = (opt: string) => optionItems?.find(i => i.name === opt)?.price || 0;
+
+    const filtered = search.trim()
+      ? options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()))
+      : options;
+
+    useEffect(() => {
+      if (isOpen && searchRef.current) searchRef.current.focus();
+      if (!isOpen) setSearch('');
+    }, [isOpen]);
+
     return (
       <div ref={ref} className="relative">
         {/* Trigger */}
@@ -264,32 +276,47 @@ const MultiSelectDropdown = forwardRef<HTMLDivElement, MultiSelectDropdownProps>
 
         {/* Dropdown */}
         {isOpen && (
-          <div className="absolute z-50 mt-1 w-full bg-white border border-grey-border rounded-xl shadow-lg max-h-48 overflow-y-auto">
-            {options.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-grey-muted text-center">No options available yet</div>
-            ) : (
-              options.map(opt => {
-                const isSelected = selected.includes(opt);
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => onToggleOption(opt)}
-                    className={`w-full text-left px-3 py-2.5 text-sm cursor-pointer transition-colors flex items-center gap-2
-                      ${isSelected ? 'bg-blue-light text-blue-primary font-semibold' : 'hover:bg-grey-bg'}`}
-                  >
-                    <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0
-                      ${isSelected ? 'border-blue-primary bg-blue-primary' : 'border-grey-border'}`}>
-                      {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
-                    </span>
-                    <span className="flex-1">{opt}</span>
-                    {getPrice(opt) > 0 && (
-                      <span className="text-xs text-grey-muted ml-1">₹{getPrice(opt)}</span>
-                    )}
-                  </button>
-                );
-              })
-            )}
+          <div className="absolute z-50 mt-1 w-full bg-white border border-grey-border rounded-xl shadow-lg max-h-64 flex flex-col">
+            {/* Search input */}
+            <div className="sticky top-0 bg-white border-b border-grey-border p-2">
+              <input
+                ref={searchRef}
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search..."
+                className="w-full px-2.5 py-1.5 text-sm border border-grey-border rounded-lg outline-none focus:border-blue-primary"
+              />
+            </div>
+            <div className="overflow-y-auto flex-1">
+              {filtered.length === 0 ? (
+                <div className="px-3 py-4 text-sm text-grey-muted text-center">
+                  {options.length === 0 ? 'No options available yet' : 'No matches found'}
+                </div>
+              ) : (
+                filtered.map(opt => {
+                  const isSelected = selected.includes(opt);
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => onToggleOption(opt)}
+                      className={`w-full text-left px-3 py-2.5 text-sm cursor-pointer transition-colors flex items-center gap-2
+                        ${isSelected ? 'bg-blue-light text-blue-primary font-semibold' : 'hover:bg-grey-bg'}`}
+                    >
+                      <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0
+                        ${isSelected ? 'border-blue-primary bg-blue-primary' : 'border-grey-border'}`}>
+                        {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
+                      </span>
+                      <span className="flex-1">{opt}</span>
+                      {getPrice(opt) > 0 && (
+                        <span className="text-xs text-grey-muted ml-1">₹{getPrice(opt)}</span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
       </div>
