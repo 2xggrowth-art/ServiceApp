@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { STATUS } from '../../lib/constants';
 import { getToday } from '../../lib/helpers';
-import { openWhatsApp } from '../../lib/whatsapp';
 import { haptic } from '../../lib/haptic';
 import JobCard from '../../components/ui/JobCard';
 import Card from '../../components/ui/Card';
@@ -44,15 +43,14 @@ export default function Today() {
   const morning = activeTodayJobs.filter(j => j.timeBlock === 'morning');
   const afternoon = activeTodayJobs.filter(j => j.timeBlock === 'afternoon');
 
+  // Check if mechanic already has an active job (blocks starting another)
+  const hasActiveJob = myJobs.some(j => j.mechanicId === currentMechanicId && j.status === STATUS.IN_PROGRESS);
+
   const handlePick = async (jobId) => {
     haptic(80);
     try {
       await pickJob(jobId);
       showToast('Job picked! Timer started.', 'success');
-      const job = myJobs.find(j => j.id === jobId) || unassignedJobs.find(j => j.id === jobId);
-      if (job?.customerPhone) {
-        openWhatsApp(job.customerPhone, 'in_progress', job.customerName, job.bike, job.totalCost);
-      }
       navigate('/mechanic/active');
     } catch {
       // Error toast shown by context
@@ -64,10 +62,6 @@ export default function Today() {
     try {
       await startJob(jobId);
       showToast('Job started! Timer running.', 'info');
-      const job = myJobs.find(j => j.id === jobId);
-      if (job?.customerPhone) {
-        openWhatsApp(job.customerPhone, 'in_progress', job.customerName, job.bike, job.totalCost);
-      }
       navigate('/mechanic/active');
     } catch {
       // Error toast shown by context
@@ -98,7 +92,14 @@ export default function Today() {
       );
     }
     if (job.status === STATUS.RECEIVED && !job.mechanicId) {
-      return (
+      return hasActiveJob ? (
+        <button
+          disabled
+          className="w-full min-h-14 bg-gray-300 text-gray-500 text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed"
+        >
+          🚫 Finish active job first
+        </button>
+      ) : (
         <button
           onClick={() => handlePick(job.id)}
           className="w-full min-h-16 bg-green-success text-white text-lg font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform shadow-md"
@@ -108,7 +109,14 @@ export default function Today() {
       );
     }
     if (job.status === STATUS.ASSIGNED) {
-      return (
+      return hasActiveJob ? (
+        <button
+          disabled
+          className="w-full min-h-14 bg-gray-300 text-gray-500 text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed"
+        >
+          🚫 Finish active job first
+        </button>
+      ) : (
         <button
           onClick={() => handleStart(job.id)}
           className="w-full min-h-16 bg-blue-primary text-white text-lg font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform shadow-md"
@@ -168,7 +176,7 @@ export default function Today() {
         <>
           <SectionLabel color="text-blue-primary" emoji="🎯" text="Available — Pick One" />
           {unassignedJobs.map(job => (
-            <JobCard key={job.id} job={job} actions={getActions(job)} />
+            <JobCard key={job.id} job={job} hideTime actions={getActions(job)} />
           ))}
         </>
       )}
@@ -179,7 +187,7 @@ export default function Today() {
           <SectionLabel color="text-orange-action" emoji="🔄" text="Take Over" />
           {takeoverJobs.map(job => {
             const mech = mechanics.find(m => m.id === job.mechanicId);
-            return <JobCard key={job.id} job={job} mechanic={mech} actions={getActions(job)} />;
+            return <JobCard key={job.id} job={job} hideTime mechanic={mech} actions={getActions(job)} />;
           })}
         </>
       )}
@@ -189,7 +197,7 @@ export default function Today() {
         <>
           <SectionLabel color="text-red-urgent" emoji="📌" text="Ongoing" />
           {carryoverJobs.map(job => (
-            <JobCard key={job.id} job={job} actions={getActions(job)} />
+            <JobCard key={job.id} job={job} hideTime actions={getActions(job)} />
           ))}
         </>
       )}
@@ -199,7 +207,7 @@ export default function Today() {
         <>
           <SectionLabel color="text-black" emoji="☀️" text="Morning" />
           {morning.map(job => (
-            <JobCard key={job.id} job={job} dimCompleted actions={getActions(job)} />
+            <JobCard key={job.id} job={job} hideTime dimCompleted actions={getActions(job)} />
           ))}
         </>
       )}
@@ -209,7 +217,7 @@ export default function Today() {
         <>
           <SectionLabel color="text-black" emoji="🌅" text="Afternoon" />
           {afternoon.map(job => (
-            <JobCard key={job.id} job={job} dimCompleted actions={getActions(job)} />
+            <JobCard key={job.id} job={job} hideTime dimCompleted actions={getActions(job)} />
           ))}
         </>
       )}
@@ -229,7 +237,7 @@ export default function Today() {
           {doneOpen && (
             <div className="mt-3 space-y-3">
               {doneTodayJobs.map(job => (
-                <JobCard key={job.id} job={job} dimCompleted />
+                <JobCard key={job.id} job={job} hideTime dimCompleted />
               ))}
             </div>
           )}

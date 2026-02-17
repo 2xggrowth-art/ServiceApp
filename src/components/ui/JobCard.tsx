@@ -1,34 +1,16 @@
 import { memo } from 'react';
 import type { ReactNode } from 'react';
 import { StatusBadge, ServiceBadge, PriorityBadge } from './Badge';
-import WhatsAppButton from './WhatsAppButton';
 import { formatTime, getToday } from '../../lib/helpers';
 import { STATUS } from '../../lib/constants';
-import type { WhatsAppStage } from '../../lib/whatsapp';
 import type { Job, Mechanic } from '../../types';
-
-/** Map job status to WhatsApp message stage (null = no WA button) */
-function getWhatsAppStage(status: string): WhatsAppStage | null {
-  switch (status) {
-    case STATUS.RECEIVED:
-    case STATUS.ASSIGNED:
-      return 'received';
-    case STATUS.IN_PROGRESS:
-      return 'in_progress';
-    case STATUS.QUALITY_CHECK:
-      return 'quality_check';
-    case STATUS.READY:
-      return 'ready';
-    default:
-      return null;
-  }
-}
 
 interface JobCardProps {
   job: Job;
   mechanic?: Mechanic;
   actions?: ReactNode;
   dimCompleted?: boolean;
+  hideTime?: boolean;
 }
 
 /** Calculate how many days this job has been in progress (1 = today) */
@@ -39,7 +21,7 @@ function getDayNumber(jobDate: string): number {
   return diff + 1; // Day 1 = same day
 }
 
-export default memo(function JobCard({ job, mechanic, actions, dimCompleted = false }: JobCardProps) {
+export default memo(function JobCard({ job, mechanic, actions, dimCompleted = false, hideTime = false }: JobCardProps) {
   const dayNum = getDayNumber(job.date);
   const isCarryover = dayNum > 1;
   const isUrgent = job.priority === 'urgent' && ![STATUS.COMPLETED, STATUS.READY].includes(job.status);
@@ -84,7 +66,7 @@ export default memo(function JobCard({ job, mechanic, actions, dimCompleted = fa
 
       {/* Meta row */}
       <div className="flex flex-wrap items-center gap-3 text-xs text-black/60 font-medium mb-3">
-        <span className="flex items-center gap-1">⏰ {formatTime(job.estimatedMin)}</span>
+        {!hideTime && <span className="flex items-center gap-1">⏰ {formatTime(job.estimatedMin)}</span>}
         {mechanic && (
           <span className="flex items-center gap-1.5">
             <span className="w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ backgroundColor: mechanic.color || '#6b7280' }}>
@@ -107,18 +89,6 @@ export default memo(function JobCard({ job, mechanic, actions, dimCompleted = fa
       <div className="flex items-center justify-between pt-2 border-t-2 border-gray-100">
         <div className="flex items-center gap-2 mt-1.5">
           <StatusBadge status={job.status} />
-          {(() => {
-            const waStage = getWhatsAppStage(job.status);
-            return waStage ? (
-              <WhatsAppButton
-                phone={job.customerPhone}
-                stage={waStage}
-                customerName={job.customerName}
-                bike={job.bike}
-                quote={job.totalCost}
-              />
-            ) : null;
-          })()}
         </div>
       </div>
 

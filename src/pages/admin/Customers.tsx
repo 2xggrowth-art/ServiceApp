@@ -1,9 +1,11 @@
 import { useApp } from '../../context/AppContext';
-import { STATUS_LABELS } from '../../lib/constants';
+import { STATUS, STATUS_LABELS } from '../../lib/constants';
 import { StatusBadge } from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { Users } from 'lucide-react';
+import { openWhatsApp } from '../../lib/whatsapp';
+import type { WhatsAppStage } from '../../lib/whatsapp';
 
 const TIMELINE_STEPS = [
   { key: 'received', label: 'Recv' },
@@ -13,22 +15,44 @@ const TIMELINE_STEPS = [
   { key: 'ready',    label: 'Ready' },
 ];
 
-const STATUS_TO_STEP = {
+const STATUS_TO_STEP: Record<string, number> = {
   received: 0, assigned: 0, parts_pending: 1, in_progress: 2,
   quality_check: 3, ready: 4, completed: 4,
 };
+
+/** Map job status to WhatsApp template stage */
+function getWhatsAppStage(status: string): WhatsAppStage | null {
+  switch (status) {
+    case STATUS.RECEIVED:
+    case STATUS.ASSIGNED:
+      return 'received';
+    case STATUS.IN_PROGRESS:
+      return 'in_progress';
+    case STATUS.QUALITY_CHECK:
+      return 'quality_check';
+    case STATUS.READY:
+      return 'ready';
+    default:
+      return null;
+  }
+}
 
 export default function Customers() {
   const { getDashboardStats, showToast } = useApp();
   const stats = getDashboardStats();
   const { jobs } = stats;
 
-  const handleWhatsApp = (phone, name, status) => {
-    const msg = `Hello ${name}, your bike service status: ${status}. - Bharath Cycle Hub`;
-    const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
-    if (cleanPhone) {
-      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+  const handleWhatsApp = (job: typeof jobs[0]) => {
+    const stage = getWhatsAppStage(job.status);
+    if (!stage) {
+      showToast('No message template for this status', 'warning');
+      return;
     }
+    if (!job.customerPhone) {
+      showToast('No phone number for this customer', 'warning');
+      return;
+    }
+    openWhatsApp(job.customerPhone, stage, job.customerName, job.bike, job.totalCost);
     showToast('WhatsApp opened!', 'success');
   };
 
@@ -51,8 +75,9 @@ export default function Customers() {
         <span className="text-[11px] font-semibold text-blue-primary bg-blue-light px-2 py-1 rounded-lg">{jobs.length} jobs</span>
       </div>
 
-      {jobs.map((job, i) => {
+      {jobs.map((job) => {
         const currentIdx = STATUS_TO_STEP[job.status] ?? 0;
+        const waStage = getWhatsAppStage(job.status);
 
         return (
           <Card key={job.id} className="animate-fade-in-up">
@@ -93,15 +118,17 @@ export default function Customers() {
             </div>
 
             {/* WhatsApp */}
-            <div className="text-right mt-3">
-              <Button
-                size="sm"
-                variant="success"
-                onClick={() => handleWhatsApp(job.customerPhone, job.customerName, STATUS_LABELS[job.status])}
-              >
-                💬 WhatsApp
-              </Button>
-            </div>
+            {waStage && job.customerPhone && (
+              <div className="text-right mt-3">
+                <Button
+                  size="sm"
+                  variant="success"
+                  onClick={() => handleWhatsApp(job)}
+                >
+                  💬 WhatsApp
+                </Button>
+              </div>
+            )}
           </Card>
         );
       })}

@@ -69,6 +69,7 @@ function AppRoutes() {
           <Route path="/staff/pickup" element={<Pickup />} />
           <Route path="/staff/parts" element={<StaffParts />} />
           <Route path="/staff/qc" element={<QualityCheck />} />
+          <Route path="/staff/customers" element={<Customers />} />
         </Route>
 
         {/* Admin routes — owner and admin only */}

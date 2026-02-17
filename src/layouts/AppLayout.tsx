@@ -27,11 +27,12 @@ const ADMIN_NAV = [
 
 const NAV_CONFIG: Record<string, typeof ADMIN_NAV> = {
   staff: [
-    { path: '/staff/checkin', icon: PlusCircle,     label: 'Check In' },
-    { path: '/staff/queue',   icon: ClipboardList,  label: 'Queue' },
-    { path: '/staff/pickup',  icon: Wallet,         label: 'Pickup' },
-    { path: '/staff/parts',   icon: Wrench,         label: 'Parts' },
-    { path: '/staff/qc',      icon: ShieldCheck,    label: 'QC' },
+    { path: '/staff/checkin',    icon: PlusCircle,     label: 'Check In' },
+    { path: '/staff/queue',      icon: ClipboardList,  label: 'Queue' },
+    { path: '/staff/pickup',     icon: Wallet,         label: 'Pickup' },
+    { path: '/staff/parts',      icon: Wrench,         label: 'Parts' },
+    { path: '/staff/qc',         icon: ShieldCheck,    label: 'QC' },
+    { path: '/staff/customers',  icon: Phone,          label: 'Customers' },
   ],
   mechanic: [
     { path: '/mechanic/today',  icon: CalendarDays,  label: 'Today' },
@@ -109,7 +110,7 @@ export default function AppLayout() {
   // Show notification permission banner for mechanics who haven't been asked
   const showNotifBanner =
     config.useSupabase &&
-    role === ROLES.MECHANIC &&
+    (role === ROLES.MECHANIC || role === ROLES.STAFF) &&
     isNotificationSupported() &&
     getPermissionState() === 'default' &&
     !wasPermissionDismissed() &&

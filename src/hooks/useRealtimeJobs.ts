@@ -4,12 +4,22 @@ import { config } from '../lib/config';
 import { getToday } from '../lib/helpers';
 import { notifyViaServiceWorker } from '../lib/notifications';
 
+const STATUS_LABELS: Record<string, string> = {
+  received: 'Received',
+  assigned: 'Assigned',
+  in_progress: 'In Progress',
+  parts_pending: 'Parts Pending',
+  quality_check: 'Quality Check',
+  ready: 'Ready',
+  completed: 'Completed',
+};
+
 /**
  * Subscribe to real-time changes on the jobs table for today.
  * Calls onJobChange with { eventType, new, old } on each change.
  * Also triggers browser notifications for key events.
  */
-export function useRealtimeJobs(onJobChange, currentUserId?: string) {
+export function useRealtimeJobs(onJobChange: Function, currentUserId?: string, userRole?: string) {
   const stableCallback = useCallback(onJobChange, [onJobChange]);
 
   useEffect(() => {
@@ -39,7 +49,9 @@ export function useRealtimeJobs(onJobChange, currentUserId?: string) {
             const newRow = payload.new as Record<string, unknown>;
             const oldRow = payload.old as Record<string, unknown>;
             const isMyJob = currentUserId && newRow.mechanic_id === currentUserId;
+            const statusChanged = oldRow.status !== newRow.status;
 
+            // === Mechanic notifications ===
             // Job assigned to me
             if (isMyJob && oldRow.status === 'received' && newRow.status === 'assigned') {
               notifyViaServiceWorker('New Job Assigned', `${newRow.bike} — ${newRow.service_type}`, {
@@ -60,6 +72,19 @@ export function useRealtimeJobs(onJobChange, currentUserId?: string) {
                 tag: `parts-ready-${newRow.id}`,
               });
             }
+
+            // === Staff notifications — notify when mechanic changes job status ===
+            if (userRole === 'staff' && statusChanged) {
+              const newStatus = STATUS_LABELS[newRow.status as string] || newRow.status;
+              const customerName = (newRow.customer_name as string) || 'Customer';
+              const bike = (newRow.bike as string) || 'bike';
+
+              notifyViaServiceWorker(
+                `Job Update: ${customerName}`,
+                `${bike} → ${newStatus}. Tap Customers to notify via WhatsApp.`,
+                { tag: `staff-update-${newRow.id}-${newRow.status}` }
+              );
+            }
           }
         }
       )
@@ -70,5 +95,5 @@ export function useRealtimeJobs(onJobChange, currentUserId?: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [stableCallback, currentUserId]);
+  }, [stableCallback, currentUserId, userRole]);
 }

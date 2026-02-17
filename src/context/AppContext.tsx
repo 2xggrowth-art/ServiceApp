@@ -289,7 +289,7 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  useRealtimeJobs(handleJobChange, auth?.appUser?.id);
+  useRealtimeJobs(handleJobChange, auth?.appUser?.id, role);
   useRealtimeUsers(handleUserChange);
 
   // ============================================================
@@ -534,6 +534,12 @@ export function AppProvider({ children }) {
   }, [auth?.appUser?.id]);
 
   const startJob = useCallback(async (jobId: string | number) => {
+    // Prevent starting a second job while one is already in progress
+    const activeJob = jobs.find(j => j.mechanicId === currentMechanicId && j.status === STATUS.IN_PROGRESS);
+    if (activeJob && activeJob.id !== jobId) {
+      showToast('Finish your current job first', 'error');
+      return;
+    }
     const job = jobs.find(j => j.id === jobId);
     const now = new Date().toISOString();
     setJobs(prev => prev.map(j =>
@@ -562,10 +568,16 @@ export function AppProvider({ children }) {
         throw err;
       }
     }
-  }, [auth?.appUser?.id, showToast]);
+  }, [jobs, currentMechanicId, auth?.appUser?.id, showToast]);
 
   // Pick a job — mechanic self-assigns + starts immediately
   const pickJob = useCallback(async (jobId: string | number) => {
+    // Prevent picking a new job while one is already in progress
+    const activeJob = jobs.find(j => j.mechanicId === currentMechanicId && j.status === STATUS.IN_PROGRESS);
+    if (activeJob) {
+      showToast('Finish your current job first', 'error');
+      return;
+    }
     const now = new Date().toISOString();
     const pickingMechanicId = currentMechanicId;
 
@@ -599,7 +611,7 @@ export function AppProvider({ children }) {
         throw err;
       }
     }
-  }, [currentMechanicId, auth?.appUser?.id, showToast]);
+  }, [jobs, currentMechanicId, auth?.appUser?.id, showToast]);
 
   const completeJob = useCallback(async (jobId: string | number, partsUsed: Job['partsUsed'] = []) => {
     const job = jobs.find(j => j.id === jobId);
