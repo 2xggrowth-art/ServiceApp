@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { STATUS, SERVICE_TYPES } from '../../lib/constants';
 import { formatCurrency } from '../../lib/helpers';
+import { haptic } from '../../lib/haptic';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
@@ -20,14 +21,17 @@ function parsePhotoUrls(val?: string): string[] {
 
 export default function ActiveJob() {
   const {
-    getMechanicJobs, currentMechanicId, completeJob, markPartsNeeded,
+    getMechanicJobs, currentMechanicId, completeJob, markPartsNeeded, markPartsReceived,
     pauseJob, resumeJob, showToast, parts, partsList, partsItems, serviceItems
   } = useApp();
   const navigate = useNavigate();
 
   const myJobs = getMechanicJobs(currentMechanicId);
-  const activeJob = myJobs.find(j => j.status === STATUS.IN_PROGRESS);
+  // Show in_progress OR parts_pending jobs so mechanic can still work on them
+  const activeJob = myJobs.find(j => j.status === STATUS.IN_PROGRESS)
+    || myJobs.find(j => j.status === STATUS.PARTS_PENDING);
   const isPaused = !!activeJob?.pausedAt;
+  const isPartsPending = activeJob?.status === STATUS.PARTS_PENDING;
 
   const [partsUsed, setPartsUsed] = useState([]);
   const [partsModalOpen, setPartsModalOpen] = useState(false);
@@ -43,6 +47,7 @@ export default function ActiveJob() {
 
   const handleAddPart = () => {
     if (!selectedPartId) return;
+    haptic();
 
     if (selectedPartId.startsWith('inv-')) {
       const invId = Number(selectedPartId.replace('inv-', ''));
@@ -62,15 +67,27 @@ export default function ActiveJob() {
   };
 
   const removePart = (idx: number) => {
+    haptic();
     setPartsUsed(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleNeedParts = async () => {
     if (!activeJob) return;
+    haptic(100);
     try {
       await markPartsNeeded(activeJob.id, [{ name: 'Requested part', status: 'pending' }]);
-      showToast('Parts request sent!', 'info');
-      navigate('/mechanic/today');
+      showToast('Parts request sent! You can still view this job.', 'info');
+    } catch {
+      // Error toast shown by context
+    }
+  };
+
+  const handleResumeFromParts = async () => {
+    if (!activeJob) return;
+    haptic(100);
+    try {
+      await markPartsReceived(activeJob.id);
+      showToast('Resumed work — parts received!', 'success');
     } catch {
       // Error toast shown by context
     }
@@ -78,12 +95,12 @@ export default function ActiveJob() {
 
   const handleComplete = async () => {
     if (!activeJob) return;
+    haptic(150);
     try {
       await completeJob(activeJob.id, partsUsed);
       setPartsUsed([]);
       const needsQc = ['repair', 'makeover'].includes(activeJob.serviceType);
       showToast(needsQc ? 'Sent for QC check!' : 'Job completed!', 'success');
-      // Notify customer via WhatsApp
       if (activeJob.customerPhone) {
         openWhatsApp(activeJob.customerPhone, needsQc ? 'quality_check' : 'ready', activeJob.customerName, activeJob.bike);
       }
@@ -95,10 +112,10 @@ export default function ActiveJob() {
 
   if (!activeJob) {
     return (
-      <div className="text-center py-16">
-        <div className="text-5xl mb-3">🔧</div>
-        <p className="text-grey-muted">No active job</p>
-        <p className="text-xs text-grey-light mt-1">Start one from Today tab</p>
+      <div className="text-center py-20" style={{ fontFamily: 'var(--font-mechanic)' }}>
+        <div className="text-6xl mb-4">🔧</div>
+        <p className="text-xl font-bold text-black">No Active Job</p>
+        <p className="text-base text-black/60 mt-2">Start one from Today tab</p>
       </div>
     );
   }
@@ -107,11 +124,9 @@ export default function ActiveJob() {
   const jobServices = activeJob.services || [];
   const jobCheckinParts = activeJob.checkinParts || [];
 
-  // Parse photos and audio from job record
   const jobPhotos = parsePhotoUrls(activeJob.photoBefore);
   const audioUrl = activeJob.photoAfter || '';
 
-  // Deduplicate checkinParts for bill display
   const checkinPartsBill: { name: string; qty: number; price: number }[] = [];
   const partCountMap: Record<string, number> = {};
   for (const name of jobCheckinParts) {
@@ -126,21 +141,42 @@ export default function ActiveJob() {
   const checkinPartsTotal = checkinPartsBill.reduce((sum, p) => sum + p.price * p.qty, 0);
 
   return (
-    <div className="space-y-4">
-      {/* Job Info */}
-      <Card className="text-center space-y-2">
-        <h3 className="font-bold text-lg">{activeJob.bike}</h3>
-        <p className="text-sm text-grey-muted">{activeJob.customerName}</p>
+    <div className="space-y-5" style={{ fontFamily: 'var(--font-mechanic)' }}>
+      {/* Parts Pending Banner — bold and unmissable */}
+      {isPartsPending && (
+        <div className="bg-orange-action/10 border-2 border-orange-action rounded-2xl p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-3xl">🔧</span>
+            <div className="flex-1">
+              <p className="text-base font-bold text-black">Waiting for Parts</p>
+              <p className="text-sm text-black/70 mt-0.5">
+                {(activeJob.partsNeeded || []).map(p => p.name).join(', ') || 'Parts requested'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleResumeFromParts}
+            className="w-full min-h-14 bg-green-success text-white text-lg font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform"
+          >
+            ▶ RESUME WORK
+          </button>
+        </div>
+      )}
 
-        {/* Service type — big bold display */}
+      {/* Job Info — high contrast */}
+      <Card className="p-5! text-center space-y-3">
+        <h3 className="font-bold text-xl text-black">{activeJob.bike}</h3>
+        <p className="text-base text-black/70">{activeJob.customerName}</p>
+
+        {/* Service type */}
         {jobServices.length > 0 && (
           <div className="flex flex-wrap justify-center gap-2 pt-1">
             {jobServices.map((svc, i) => {
               const svcPrice = serviceItems?.find(s => s.name === svc)?.price || 0;
               return (
-                <div key={`svc-${i}`} className="bg-blue-primary text-white px-4 py-2 rounded-xl">
-                  <span className="text-base font-bold">{svc}</span>
-                  {svcPrice > 0 && <span className="text-sm ml-1.5 opacity-80">₹{svcPrice}</span>}
+                <div key={`svc-${i}`} className="bg-blue-primary text-white px-5 py-2.5 rounded-2xl">
+                  <span className="text-lg font-bold">{svc}</span>
+                  {svcPrice > 0 && <span className="text-base ml-2 opacity-80">₹{svcPrice}</span>}
                 </div>
               );
             })}
@@ -148,13 +184,14 @@ export default function ActiveJob() {
         )}
 
         {activeJob.issue && (
-          <p className="text-xs text-grey-muted italic">"{activeJob.issue}"</p>
+          <div className="bg-gray-100 rounded-2xl p-3">
+            <p className="text-sm text-black/80 font-medium">"{activeJob.issue}"</p>
+          </div>
         )}
 
         {laborCharge > 0 && (
-          <div className="inline-block bg-green-success/10 rounded-xl px-5 py-2.5">
-            <span className="text-xl font-bold text-green-success">{formatCurrency(laborCharge)}</span>
-            <span className="text-xs text-green-success/70 ml-1">total</span>
+          <div className="inline-block bg-green-success/10 border-2 border-green-success/30 rounded-2xl px-6 py-3">
+            <span className="text-2xl font-bold text-green-success">{formatCurrency(laborCharge)}</span>
           </div>
         )}
       </Card>
@@ -162,12 +199,12 @@ export default function ActiveJob() {
       {/* Check-in Photos */}
       {jobPhotos.length > 0 && (
         <div>
-          <h4 className="text-sm font-bold text-grey-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Image size={14} /> Check-in Photos
+          <h4 className="text-sm font-bold text-black uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Image size={16} /> Check-in Photos
           </h4>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {jobPhotos.map((url, i) => (
-              <div key={i} className="w-24 h-24 rounded-xl overflow-hidden border border-grey-border">
+              <div key={i} className="aspect-square rounded-2xl overflow-hidden border-2 border-gray-200">
                 <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
               </div>
             ))}
@@ -178,38 +215,38 @@ export default function ActiveJob() {
       {/* Voice Note */}
       {audioUrl && (
         <div>
-          <h4 className="text-sm font-bold text-grey-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Volume2 size={14} /> Voice Note
+          <h4 className="text-sm font-bold text-black uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Volume2 size={16} /> Voice Note
           </h4>
-          <audio controls className="w-full h-10" preload="metadata">
+          <audio controls className="w-full h-12" preload="metadata">
             <source src={audioUrl} />
           </audio>
         </div>
       )}
 
-      {/* Parts from check-in — bill format */}
+      {/* Parts from check-in */}
       {checkinPartsBill.length > 0 && (
         <div>
-          <h4 className="text-sm font-bold text-grey-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Package size={14} /> Parts (from check-in)
+          <h4 className="text-sm font-bold text-black uppercase tracking-wider mb-3 flex items-center gap-2">
+            <Package size={16} /> Parts (from check-in)
           </h4>
-          <div className="border border-grey-border rounded-xl overflow-hidden">
-            <div className="divide-y divide-grey-border/50">
+          <div className="border-2 border-gray-200 rounded-2xl overflow-hidden">
+            <div className="divide-y divide-gray-100">
               {checkinPartsBill.map(p => (
-                <div key={p.name} className="flex items-center justify-between px-3 py-2">
+                <div key={p.name} className="flex items-center justify-between px-4 py-3">
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-semibold">{p.name}</span>
-                    {p.price > 0 && <span className="text-[11px] text-grey-muted ml-1">₹{p.price}</span>}
+                    <span className="text-sm font-bold text-black">{p.name}</span>
+                    {p.price > 0 && <span className="text-sm text-black/50 ml-2">₹{p.price}</span>}
                   </div>
-                  {p.qty > 1 && <span className="text-xs text-grey-muted mx-2">x{p.qty}</span>}
-                  {p.price > 0 && <span className="text-sm font-bold">₹{p.price * p.qty}</span>}
+                  {p.qty > 1 && <span className="text-sm text-black/60 mx-2">x{p.qty}</span>}
+                  {p.price > 0 && <span className="text-base font-bold text-black">₹{p.price * p.qty}</span>}
                 </div>
               ))}
             </div>
             {checkinPartsTotal > 0 && (
-              <div className="flex items-center justify-between px-3 py-2 bg-orange-light/30 border-t border-grey-border">
-                <span className="text-xs font-bold text-grey-muted">Parts Total</span>
-                <span className="text-sm font-bold text-orange-action">₹{checkinPartsTotal}</span>
+              <div className="flex items-center justify-between px-4 py-3 bg-orange-action/10 border-t-2 border-gray-200">
+                <span className="text-sm font-bold text-black">Parts Total</span>
+                <span className="text-base font-bold text-orange-action">₹{checkinPartsTotal}</span>
               </div>
             )}
           </div>
@@ -218,38 +255,45 @@ export default function ActiveJob() {
 
       {/* Parts Used */}
       <div>
-        <h4 className="text-sm font-bold text-grey-muted uppercase tracking-wider mb-2">Parts Used</h4>
+        <h4 className="text-sm font-bold text-black uppercase tracking-wider mb-3">Parts Used</h4>
         {partsUsed.length === 0 ? (
-          <p className="text-xs text-grey-light">No parts added yet</p>
+          <p className="text-sm text-black/50 font-medium">No parts added yet</p>
         ) : (
           <div className="space-y-2">
             {partsUsed.map((p, i) => (
-              <div key={i} className="flex items-center justify-between bg-white rounded-xl p-3 shadow-sm">
+              <div key={i} className="flex items-center justify-between bg-white rounded-2xl p-4 border-2 border-gray-200">
                 <div>
-                  <div className="text-sm font-semibold">{p.name}</div>
-                  <div className="text-xs text-grey-muted">Qty: {p.qty} {p.price > 0 ? `• ${formatCurrency(p.price)}` : ''}</div>
+                  <div className="text-sm font-bold text-black">{p.name}</div>
+                  <div className="text-sm text-black/60">Qty: {p.qty} {p.price > 0 ? `• ${formatCurrency(p.price)}` : ''}</div>
                 </div>
-                <button onClick={() => removePart(i)} className="text-red-urgent text-xs font-semibold px-2 py-1 rounded-lg hover:bg-red-light cursor-pointer">
+                <button
+                  onClick={() => removePart(i)}
+                  className="min-w-10 min-h-10 bg-red-urgent/10 text-red-urgent text-lg font-bold rounded-xl flex items-center justify-center cursor-pointer active:bg-red-urgent/20"
+                >
                   ✕
                 </button>
               </div>
             ))}
           </div>
         )}
-        <Button variant="outline" block className="mt-3" onClick={() => setPartsModalOpen(true)}>
-          + Add Part
-        </Button>
+        <button
+          onClick={() => { haptic(); setPartsModalOpen(true); }}
+          className="w-full min-h-14 mt-3 bg-white border-2 border-gray-300 text-black text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:bg-gray-100 transition-colors"
+        >
+          <Wrench size={18} /> + Add Part
+        </button>
       </div>
 
-      {/* Action Buttons */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Action Buttons — chunky grid */}
+      <div className="grid grid-cols-3 gap-3">
         <ActionBtn icon="🔧" label="Need Parts" onClick={handleNeedParts} />
-        <ActionBtn icon="💡" label="Need Help" onClick={() => showToast('Help request sent!', 'info')} />
+        <ActionBtn icon="💡" label="Need Help" onClick={() => { haptic(); showToast('Help request sent!', 'info'); }} />
         <ActionBtn
           icon={isPaused ? '▶️' : '⏸️'}
           label={isPaused ? 'Resume' : 'Pause'}
           active={isPaused}
           onClick={async () => {
+            haptic(100);
             if (isPaused) {
               await resumeJob(activeJob.id);
               showToast('Job resumed!', 'success');
@@ -261,49 +305,53 @@ export default function ActiveJob() {
         />
       </div>
 
-      <Button variant="success" size="lg" block onClick={handleComplete}>
-        COMPLETE JOB
-      </Button>
+      {/* COMPLETE — the biggest button on screen */}
+      <button
+        onClick={handleComplete}
+        className="w-full min-h-18 bg-green-success text-white text-xl font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform shadow-lg"
+      >
+        ✅ COMPLETE JOB
+      </button>
 
       {/* Parts Modal */}
       <Modal open={partsModalOpen} onClose={() => setPartsModalOpen(false)} title="Add Part Used">
-        <div className="space-y-3 mb-4">
+        <div className="space-y-4 mb-4" style={{ fontFamily: 'var(--font-mechanic)' }}>
           <div>
-            <label className="text-xs font-semibold text-grey-muted block mb-1">Part Name</label>
+            <label className="text-sm font-bold text-black block mb-2">Part Name</label>
             <select
               value={selectedPartId}
               onChange={e => setSelectedPartId(e.target.value)}
-              className="w-full border border-grey-border rounded-xl px-3 py-2.5 text-sm bg-white"
+              className="w-full border-2 border-gray-300 rounded-2xl px-4 py-3 text-base bg-white text-black font-medium"
             >
               <option value="">Select a part...</option>
-              {parts.length > 0 && (
-                <optgroup label="Inventory">
-                  {parts.map(p => (
-                    <option key={p.id} value={`inv-${p.id}`}>{p.name} (₹{p.price}) - Stock: {p.stock}</option>
-                  ))}
-                </optgroup>
-              )}
-              {partsList.length > 0 && (
-                <optgroup label="Parts List">
-                  {partsList.map(p => (
-                    <option key={p} value={`list-${p}`}>{p}</option>
-                  ))}
-                </optgroup>
-              )}
+              {partsList.map(p => (
+                <option key={p} value={`list-${p}`}>{p}</option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="text-xs font-semibold text-grey-muted block mb-1">Quantity</label>
+            <label className="text-sm font-bold text-black block mb-2">Quantity</label>
             <input
               type="number" min="1" value={partQty}
               onChange={e => setPartQty(Number(e.target.value) || 1)}
-              className="w-full border border-grey-border rounded-xl px-3 py-2.5 text-sm"
+              className="w-full border-2 border-gray-300 rounded-2xl px-4 py-3 text-base font-medium"
             />
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" block onClick={() => setPartsModalOpen(false)}>Cancel</Button>
-          <Button variant="success" block disabled={!selectedPartId} onClick={handleAddPart}>Add Part</Button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setPartsModalOpen(false)}
+            className="flex-1 min-h-14 bg-white border-2 border-gray-300 text-black text-base font-bold rounded-2xl flex items-center justify-center cursor-pointer active:bg-gray-100"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleAddPart}
+            disabled={!selectedPartId}
+            className="flex-1 min-h-14 bg-green-success text-white text-base font-bold rounded-2xl flex items-center justify-center cursor-pointer active:scale-[0.97] transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Add Part
+          </button>
         </div>
       </Modal>
     </div>
@@ -314,11 +362,11 @@ function ActionBtn({ icon, label, onClick, active }: { icon: string; label: stri
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center gap-1 py-3 rounded-xl border-2 transition-colors cursor-pointer
-        ${active ? 'bg-orange-light border-orange-action' : 'bg-white border-grey-border hover:bg-grey-bg'}`}
+      className={`flex flex-col items-center justify-center gap-1.5 min-h-18 rounded-2xl border-2 transition-colors cursor-pointer active:scale-[0.97]
+        ${active ? 'bg-orange-action/10 border-orange-action' : 'bg-white border-gray-300 active:bg-gray-100'}`}
     >
-      <span className="text-xl">{icon}</span>
-      <span className="text-xs font-semibold">{label}</span>
+      <span className="text-2xl">{icon}</span>
+      <span className="text-xs font-bold text-black">{label}</span>
     </button>
   );
 }
