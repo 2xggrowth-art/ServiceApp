@@ -9,7 +9,26 @@
       "Bash(npm create:*)",
       "Bash(npm install:*)",
       "Bash(npm run build)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(git config:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx vite build:*)",
+      "Bash(wc:*)",
+      "Bash(node -e:*)",
+      "Bash(grep:*)",
+      "Bash(npx tsc:*)",
+      "Bash(xargs:*)",
+      "Bash(ipconfig:*)",
+      "Bash(npx cloudflared tunnel:*)",
+      "Bash(where:*)",
+      "Bash(git status:*)",
+      "Bash(npx vite:*)",
+      "Bash(npx vercel --version)",
+      "Bash(npx vercel:*)",
+      "Bash(npm ls:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)"
     ]
   }
 }
