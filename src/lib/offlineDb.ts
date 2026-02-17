@@ -4,7 +4,7 @@
 // ============================================================
 
 const DB_NAME = 'bch-offline';
-const DB_VERSION = 2; // includes pendingActions store
+const DB_VERSION = 3; // v3: added pendingMedia store
 
 const STORES = {
   jobs: 'jobs',
@@ -12,6 +12,7 @@ const STORES = {
   parts: 'parts',
   meta: 'meta',
   pendingActions: 'pendingActions',
+  pendingMedia: 'pendingMedia',
 } as const;
 
 export function openDb(): Promise<IDBDatabase> {
@@ -24,6 +25,7 @@ export function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORES.parts)) db.createObjectStore(STORES.parts, { keyPath: 'id' });
       if (!db.objectStoreNames.contains(STORES.meta)) db.createObjectStore(STORES.meta, { keyPath: 'key' });
       if (!db.objectStoreNames.contains(STORES.pendingActions)) db.createObjectStore(STORES.pendingActions, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(STORES.pendingMedia)) db.createObjectStore(STORES.pendingMedia, { keyPath: 'id' });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -90,4 +92,44 @@ export const offlineDb = {
 
   // Meta helpers
   async getLastCachedAt(): Promise<number | null> { return (await getMeta('jobs_cached_at')) as number | null; },
+
+  // Pending media (photos/audio stored as Blobs for offline upload)
+  async savePendingMedia(tempJobId: string, photos: Blob[], audio: Blob | null): Promise<void> {
+    const db = await openDb();
+    const tx = db.transaction(STORES.pendingMedia, 'readwrite');
+    tx.objectStore(STORES.pendingMedia).put({
+      id: tempJobId,
+      photos,
+      audio,
+      createdAt: Date.now(),
+    });
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+  },
+
+  async getPendingMedia(tempJobId: string): Promise<{ photos: Blob[]; audio: Blob | null } | null> {
+    const db = await openDb();
+    const tx = db.transaction(STORES.pendingMedia, 'readonly');
+    const req = tx.objectStore(STORES.pendingMedia).get(tempJobId);
+    return new Promise((resolve, reject) => {
+      req.onsuccess = () => {
+        db.close();
+        if (!req.result) { resolve(null); return; }
+        resolve({ photos: req.result.photos || [], audio: req.result.audio || null });
+      };
+      req.onerror = () => { db.close(); reject(req.error); };
+    });
+  },
+
+  async removePendingMedia(tempJobId: string): Promise<void> {
+    const db = await openDb();
+    const tx = db.transaction(STORES.pendingMedia, 'readwrite');
+    tx.objectStore(STORES.pendingMedia).delete(tempJobId);
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    });
+  },
 };

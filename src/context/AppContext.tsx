@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { mapJobFromDb, mapUserFromDb } from '../lib/mappers';
 import { offlineDb } from '../lib/offlineDb';
 import { offlineQueue } from '../lib/offlineQueue';
+import { photoService } from '../services/photoService';
 import { useAuth } from './AuthContext';
 import { useRealtimeJobs } from '../hooks/useRealtimeJobs';
 import { useRealtimeUsers } from '../hooks/useRealtimeUsers';
@@ -400,12 +401,29 @@ export function AppProvider({ children }) {
   const replayAction = useCallback(async (action: string, args: unknown[]) => {
     switch (action) {
       case 'createJob': {
-        const created = await jobService.createJob(args[0] as Record<string, unknown>);
+        const jobArgs = args[0] as Record<string, unknown>;
+        const tempId = args[1] as string | undefined; // temp job ID for media lookup
+        const created = await jobService.createJob(jobArgs);
         if (created) {
           setJobs(prev => {
             const withoutTemp = prev.filter(j => !String(j.id).startsWith('temp-'));
             return [...withoutTemp, created];
           });
+          // Upload any pending media that was stored offline
+          if (tempId) {
+            offlineDb.getPendingMedia(tempId).then(media => {
+              if (!media) return;
+              if (media.photos.length > 0) {
+                const files = media.photos.map((blob, i) => new File([blob], `photo_${i}.jpg`, { type: 'image/jpeg' }));
+                photoService.uploadPhotos(created.id, files).catch(() => {});
+              }
+              if (media.audio) {
+                const audioFile = new File([media.audio], 'voice.webm', { type: 'audio/webm' });
+                photoService.uploadAudio(created.id, audioFile).catch(() => {});
+              }
+              offlineDb.removePendingMedia(tempId).catch(() => {});
+            }).catch(() => {});
+          }
         }
         break;
       }
@@ -495,7 +513,7 @@ export function AppProvider({ children }) {
         createdAt: new Date().toISOString(),
       } as Job;
       setJobs(prev => [...prev, offlineJob]);
-      await offlineQueue.enqueue('createJob', [{ ...data, createdBy: auth?.appUser?.id || null }]);
+      await offlineQueue.enqueue('createJob', [{ ...data, createdBy: auth?.appUser?.id || null }, tempId]);
       showToast('Saved offline — will sync when connected', 'info');
       return offlineJob;
     }

@@ -5,6 +5,7 @@ import { config } from '../../lib/config';
 import { customerService } from '../../services/customerService';
 import { bikeService } from '../../services/bikeService';
 import { photoService } from '../../services/photoService';
+import { offlineDb } from '../../lib/offlineDb';
 import type { Bike } from '../../types/bike';
 import Button from '../../components/ui/Button';
 import MultiPhotoCapture from '../../components/ui/MultiPhotoCapture';
@@ -168,10 +169,19 @@ export default function CheckIn() {
         customerId: form.customerId || undefined,
       };
       const job = await createJob(jobData);
-      // Upload photos & audio in background
+      // Upload photos & audio in background (or store offline)
       if (job?.id) {
-        if (photoFiles.length > 0) photoService.uploadPhotos(job.id, photoFiles).catch(() => {});
-        if (audioFile) photoService.uploadAudio(job.id, audioFile).catch(() => {});
+        if (navigator.onLine) {
+          if (photoFiles.length > 0) photoService.uploadPhotos(job.id, photoFiles).catch(() => {});
+          if (audioFile) photoService.uploadAudio(job.id, audioFile).catch(() => {});
+        } else if (photoFiles.length > 0 || audioFile) {
+          // Store media in IndexedDB for upload when back online
+          offlineDb.savePendingMedia(
+            String(job.id),
+            photoFiles,
+            audioFile,
+          ).catch(() => {});
+        }
       }
       const mech = job ? mechanics.find(m => m.id === job.mechanicId) : null;
       showToast(`Checked in! ${mech?.name ? `Assigned to ${mech.name}` : 'Added to queue'}`, 'success');
