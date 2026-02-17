@@ -20,7 +20,7 @@ export default function Queue() {
   const jobs = stats.jobs;
   const mechMap = Object.fromEntries(mechanics.map(m => [m.id, m]));
 
-  const [filter, setFilter] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string>('unassigned');
   const [expandedId, setExpandedId] = useState<string | number | null>(null);
 
   if (isDataLoading) {
@@ -103,7 +103,7 @@ export default function Queue() {
                   onClick={() => setExpandedId(isExpanded ? null : job.id)}
                   className="cursor-pointer"
                 >
-                  <JobCard job={job} mechanic={mechMap[job.mechanicId]} />
+                  <JobCard job={job} mechanic={mechMap[job.mechanicId]} hideTime />
                 </div>
 
                 {/* Expanded Detail Panel */}
