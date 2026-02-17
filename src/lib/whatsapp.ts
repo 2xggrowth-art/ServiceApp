@@ -5,15 +5,15 @@
 
 export type WhatsAppStage = 'received' | 'in_progress' | 'quality_check' | 'ready';
 
-const TEMPLATES: Record<WhatsAppStage, (name: string, bike: string) => string> = {
-  received: (name, bike) =>
-    `Hi ${name}, your ${bike} has been received at Bharath Cycle Hub. We'll update you on the progress! 🚲`,
-  in_progress: (name, bike) =>
-    `Hi ${name}, work has started on your ${bike} at Bharath Cycle Hub. We'll notify you once it's done! 🔧`,
-  quality_check: (name, bike) =>
-    `Hi ${name}, your ${bike} has passed quality check and is almost ready for pickup! ✅`,
-  ready: (name, bike) =>
-    `Hi ${name}, your ${bike} is ready for pickup at Bharath Cycle Hub! 🎉`,
+const TEMPLATES: Record<WhatsAppStage, (name: string, bike: string, quote?: string) => string> = {
+  received: (name, bike, quote) =>
+    `Hi ${name}, your ${bike} has been received at Bharath Cycle Hub.${quote ? ` Estimated cost: ${quote}.` : ''} We'll update you on the progress! 🚲`,
+  in_progress: (name, bike, quote) =>
+    `Hi ${name}, work has started on your ${bike} at Bharath Cycle Hub.${quote ? ` Estimated cost: ${quote}.` : ''} We'll notify you once it's done! 🔧`,
+  quality_check: (name, bike, quote) =>
+    `Hi ${name}, your ${bike} has passed quality check and is almost ready for pickup!${quote ? ` Total: ${quote}.` : ''} ✅`,
+  ready: (name, bike, quote) =>
+    `Hi ${name}, your ${bike} is ready for pickup at Bharath Cycle Hub!${quote ? ` Total: ${quote}.` : ''} 🎉`,
 };
 
 /** Clean phone number and add India country code */
@@ -30,10 +30,12 @@ export function buildWhatsAppUrl(
   phone: string,
   stage: WhatsAppStage,
   customerName: string,
-  bike: string
+  bike: string,
+  quote?: number | null
 ): string {
   const normalized = normalizePhone(phone);
-  const message = TEMPLATES[stage](customerName, bike);
+  const quoteStr = quote != null ? '₹' + quote.toLocaleString('en-IN') : undefined;
+  const message = TEMPLATES[stage](customerName, bike, quoteStr);
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
@@ -42,8 +44,9 @@ export function openWhatsApp(
   phone: string,
   stage: WhatsAppStage,
   customerName: string,
-  bike: string
+  bike: string,
+  quote?: number | null
 ): void {
-  const url = buildWhatsAppUrl(phone, stage, customerName, bike);
+  const url = buildWhatsAppUrl(phone, stage, customerName, bike, quote);
   window.open(url, '_blank');
 }

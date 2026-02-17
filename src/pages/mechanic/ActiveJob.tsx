@@ -90,7 +90,7 @@ export default function ActiveJob() {
       const needsQc = ['repair', 'makeover'].includes(activeJob.serviceType);
       showToast(needsQc ? 'Sent for QC check!' : 'Job completed!', 'success');
       if (activeJob.customerPhone) {
-        openWhatsApp(activeJob.customerPhone, needsQc ? 'quality_check' : 'ready', activeJob.customerName, activeJob.bike);
+        openWhatsApp(activeJob.customerPhone, needsQc ? 'quality_check' : 'ready', activeJob.customerName, activeJob.bike, activeJob.totalCost);
       }
       navigate('/mechanic/today');
     } catch {

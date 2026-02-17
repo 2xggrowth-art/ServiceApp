@@ -10,15 +10,8 @@ import type { Bike } from '../../types/bike';
 import Button from '../../components/ui/Button';
 import MultiPhotoCapture from '../../components/ui/MultiPhotoCapture';
 import VoiceInput from '../../components/ui/VoiceInput';
-import { ChevronDown, X, Plus, Minus, Trash2, Wrench, Zap, Sparkles, ShieldCheck } from 'lucide-react';
+import { ChevronDown, X, Plus, Minus, Trash2 } from 'lucide-react';
 import { openWhatsApp } from '../../lib/whatsapp';
-
-const SERVICE_ICONS: Record<string, typeof Wrench> = {
-  'Regular Service': Wrench,
-  'Repair': Zap,
-  'Complete Makeover': Sparkles,
-  'Insurance Service': ShieldCheck,
-};
 
 interface PartLine {
   name: string;
@@ -210,13 +203,13 @@ export default function CheckIn() {
           String(job.id),
           photoFiles,
           audioFile,
-        ).catch(() => {});
+        ).catch(() => { });
       }
       const mech = job ? mechanics.find(m => m.id === job.mechanicId) : null;
       showToast(`Checked in! ${mech?.name ? `Assigned to ${mech.name}` : 'Added to queue'}`, 'success');
       // Open WhatsApp to notify customer
       if (form.customerPhone) {
-        openWhatsApp(form.customerPhone, 'received', form.customerName, form.bike);
+        openWhatsApp(form.customerPhone, 'received', form.customerName, form.bike, form.totalCharge ? Number(form.totalCharge) : undefined);
       }
       setForm({ customerName: '', customerPhone: '', customerId: '', bike: '', bikeId: '', serviceType: 'regular', totalCharge: '', issue: '', priority: 'standard' });
       setSelectedService(null);
@@ -307,27 +300,21 @@ export default function CheckIn() {
       <div>
         <label className="text-[11px] font-semibold text-grey-muted uppercase tracking-wider block mb-2">Service Type</label>
         {serviceList.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2">
             {serviceList.map(svc => {
               const price = serviceItems?.find(i => i.name === svc)?.price || 0;
               const isActive = selectedService === svc;
-              const IconComp = SERVICE_ICONS[svc] || Wrench;
               return (
                 <button
                   key={svc}
                   type="button"
                   onClick={() => setSelectedService(isActive ? null : svc)}
-                  className={`flex flex-col items-center gap-1.5 p-3.5 rounded-2xl border-2 text-center transition-all duration-200 cursor-pointer
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl border-2 transition-all duration-200 cursor-pointer
                     ${isActive
-                      ? 'border-blue-primary bg-blue-light shadow-sm scale-[1.02]'
-                      : 'border-grey-border bg-white hover:bg-grey-bg hover:border-grey-light active:scale-[0.98]'}`}
+                      ? 'border-blue-primary bg-blue-light'
+                      : 'border-grey-border bg-white hover:bg-grey-bg active:scale-[0.98]'}`}
                 >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-                    isActive ? 'bg-blue-primary text-white' : 'bg-grey-bg text-grey-muted'
-                  }`}>
-                    <IconComp size={20} />
-                  </div>
-                  <span className={`text-xs font-bold leading-tight ${isActive ? 'text-blue-primary' : 'text-grey-text'}`}>{svc}</span>
+                  <span className={`text-xs font-bold ${isActive ? 'text-blue-primary' : 'text-grey-text'}`}>{svc}</span>
                   {price > 0 && (
                     <span className={`text-[10px] font-semibold ${isActive ? 'text-blue-primary/70' : 'text-grey-light'}`}>₹{price}</span>
                   )}
@@ -561,9 +548,8 @@ const PartsDropdown = forwardRef<HTMLDivElement, PartsDropdownProps>(
 function FloatingField({ label, children, hasValue }: { label: string; children: React.ReactNode; hasValue?: boolean }) {
   return (
     <div className="relative">
-      <label className={`text-[11px] font-semibold uppercase tracking-wider block mb-2 transition-colors ${
-        hasValue ? 'text-blue-primary' : 'text-grey-muted'
-      }`}>{label}</label>
+      <label className={`text-[11px] font-semibold uppercase tracking-wider block mb-2 transition-colors ${hasValue ? 'text-blue-primary' : 'text-grey-muted'
+        }`}>{label}</label>
       {children}
     </div>
   );

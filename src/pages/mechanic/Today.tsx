@@ -51,7 +51,7 @@ export default function Today() {
       showToast('Job picked! Timer started.', 'success');
       const job = myJobs.find(j => j.id === jobId) || unassignedJobs.find(j => j.id === jobId);
       if (job?.customerPhone) {
-        openWhatsApp(job.customerPhone, 'in_progress', job.customerName, job.bike);
+        openWhatsApp(job.customerPhone, 'in_progress', job.customerName, job.bike, job.totalCost);
       }
       navigate('/mechanic/active');
     } catch {
@@ -66,7 +66,7 @@ export default function Today() {
       showToast('Job started! Timer running.', 'info');
       const job = myJobs.find(j => j.id === jobId);
       if (job?.customerPhone) {
-        openWhatsApp(job.customerPhone, 'in_progress', job.customerName, job.bike);
+        openWhatsApp(job.customerPhone, 'in_progress', job.customerName, job.bike, job.totalCost);
       }
       navigate('/mechanic/active');
     } catch {

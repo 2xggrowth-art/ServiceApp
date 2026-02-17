@@ -16,7 +16,7 @@ export type JobStatus =
   | 'ready'
   | 'completed';
 
-export type ServiceType = 'regular' | 'repair' | 'makeover' | 'insurance';
+export type ServiceType = 'regular' | 'repair' | 'makeover' | 'insurance' | 'free';
 export type Priority = 'standard' | 'urgent';
 export type PaymentMethod = 'cash' | 'upi' | 'card' | 'credit';
 export type QcStatus = 'passed' | 'failed';

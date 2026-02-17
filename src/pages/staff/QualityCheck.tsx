@@ -36,7 +36,7 @@ export default function QualityCheck() {
       showToast('QC passed! Bike ready for pickup.', 'success');
       // Notify customer via WhatsApp
       if (qcJob.customerPhone) {
-        openWhatsApp(qcJob.customerPhone, 'ready', qcJob.customerName, qcJob.bike);
+        openWhatsApp(qcJob.customerPhone, 'ready', qcJob.customerName, qcJob.bike, qcJob.totalCost);
       }
       setQcModalOpen(false);
     } catch (err) {

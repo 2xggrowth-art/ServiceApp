@@ -115,6 +115,7 @@ export default memo(function JobCard({ job, mechanic, actions, dimCompleted = fa
                 stage={waStage}
                 customerName={job.customerName}
                 bike={job.bike}
+                quote={job.totalCost}
               />
             ) : null;
           })()}

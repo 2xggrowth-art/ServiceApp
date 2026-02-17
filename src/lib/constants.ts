@@ -33,10 +33,11 @@ export const STATUS_COLORS: Record<JobStatus, string> = {
 
 // Service types
 export const SERVICE_TYPES: Record<ServiceType, ServiceTypeConfig> = {
-  regular:   { id: 'regular',   label: 'Regular Service',    icon: '🔧', time: 45,  price: 500 },
-  repair:    { id: 'repair',    label: 'Repair',             icon: '⚡', time: 90,  price: 200 },
-  makeover:  { id: 'makeover',  label: 'Complete Makeover',  icon: '🧽', time: 240, price: 2459 },
-  insurance: { id: 'insurance', label: 'Insurance Service',  icon: '✅', time: 30,  price: 0 },
+  regular: { id: 'regular', label: 'Regular Service', icon: '', time: 45, price: 500 },
+  repair: { id: 'repair', label: 'Repair', icon: '', time: 90, price: 200 },
+  makeover: { id: 'makeover', label: 'Complete Makeover', icon: '', time: 240, price: 2459 },
+  insurance: { id: 'insurance', label: 'Insurance Service', icon: '', time: 30, price: 0 },
+  free: { id: 'free', label: 'Free Service', icon: '', time: 30, price: 0 },
 };
 
 // Roles

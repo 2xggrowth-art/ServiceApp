@@ -38,11 +38,12 @@ export function ServiceBadge({ type }: { type: string }) {
     repair:    'bg-orange-light/70 text-orange-action',
     makeover:  'bg-purple-light/70 text-purple-qc',
     insurance: 'bg-green-light/70 text-green-success',
+    free:      'bg-gray-100 text-gray-600',
   };
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold ${badgeColors[type]}`}>
-      {st.icon} {st.label}
+    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold ${badgeColors[type] || 'bg-gray-100 text-gray-600'}`}>
+      {st.label}
     </span>
   );
 }
