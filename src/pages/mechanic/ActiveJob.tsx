@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { STATUS, SERVICE_TYPES } from '../../lib/constants';
@@ -6,16 +6,14 @@ import { formatCurrency } from '../../lib/helpers';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
-import PhotoCapture from '../../components/ui/PhotoCapture';
 import { photoService } from '../../services/photoService';
-import { Wrench, Package } from 'lucide-react';
+import { Wrench, Package, Image, Volume2 } from 'lucide-react';
 
 export default function ActiveJob() {
   const {
     getMechanicJobs, currentMechanicId, completeJob, markPartsNeeded,
-    pauseJob, resumeJob, showToast, parts, partsList
+    pauseJob, resumeJob, showToast, parts, partsList, partsItems
   } = useApp();
-  // No manual refresh needed — polling (30s) + realtime + visibility listener handle data freshness
   const navigate = useNavigate();
 
   const myJobs = getMechanicJobs(currentMechanicId);
@@ -27,6 +25,12 @@ export default function ActiveJob() {
   const [selectedPartId, setSelectedPartId] = useState('');
   const [partQty, setPartQty] = useState(1);
 
+  // Photos & audio loaded from storage
+  const [jobPhotos, setJobPhotos] = useState<string[]>([]);
+  const [jobAudioUrls, setJobAudioUrls] = useState<string[]>([]);
+  const [loadingMedia, setLoadingMedia] = useState(false);
+  const loadedJobId = useRef<string | number | null>(null);
+
   // Load existing parts
   useEffect(() => {
     if (activeJob?.partsUsed?.length > 0 && partsUsed.length === 0) {
@@ -34,19 +38,33 @@ export default function ActiveJob() {
     }
   }, [activeJob?.id]);
 
+  // Load photos & audio from storage when job changes
+  useEffect(() => {
+    if (!activeJob?.id || loadedJobId.current === activeJob.id) return;
+    loadedJobId.current = activeJob.id;
+    setLoadingMedia(true);
+
+    Promise.all([
+      photoService.listJobPhotos(activeJob.id),
+      photoService.listJobAudio(activeJob.id),
+    ]).then(([photos, audio]) => {
+      setJobPhotos(photos);
+      setJobAudioUrls(audio);
+    }).finally(() => setLoadingMedia(false));
+  }, [activeJob?.id]);
+
   const handleAddPart = () => {
     if (!selectedPartId) return;
 
     if (selectedPartId.startsWith('inv-')) {
-      // Inventory part
       const invId = Number(selectedPartId.replace('inv-', ''));
       const part = parts.find(p => p.id === invId);
       if (!part) return;
       setPartsUsed(prev => [...prev, { name: part.name, qty: partQty, price: part.price }]);
     } else if (selectedPartId.startsWith('list-')) {
-      // Parts list item (no price)
       const partName = selectedPartId.replace('list-', '');
-      setPartsUsed(prev => [...prev, { name: partName, qty: partQty, price: 0 }]);
+      const price = partsItems?.find(i => i.name === partName)?.price || 0;
+      setPartsUsed(prev => [...prev, { name: partName, qty: partQty, price }]);
     }
 
     setPartsModalOpen(false);
@@ -97,14 +115,39 @@ export default function ActiveJob() {
   const jobServices = activeJob.services || [];
   const jobCheckinParts = activeJob.checkinParts || [];
 
+  // Deduplicate checkinParts for bill display: count qty per part name
+  const checkinPartsBill: { name: string; qty: number; price: number }[] = [];
+  const partCountMap: Record<string, number> = {};
+  for (const name of jobCheckinParts) {
+    partCountMap[name] = (partCountMap[name] || 0) + 1;
+  }
+  for (const [name, qty] of Object.entries(partCountMap)) {
+    const price = partsItems?.find(i => i.name === name)?.price || 0;
+    checkinPartsBill.push({ name, qty, price });
+  }
+
+  // Calculate totals for bill
+  const servicePrice = jobServices.reduce((sum, svc) => {
+    const item = partsItems ? undefined : undefined; // services use serviceItems
+    return sum;
+  }, 0);
+  const laborCharge = activeJob.laborCharge ?? 0;
+  const checkinPartsTotal = checkinPartsBill.reduce((sum, p) => sum + p.price * p.qty, 0);
+
   return (
     <div className="space-y-4">
-      {/* Job Info */}
+      {/* Job Info with amount */}
       <Card className="text-center">
-        <h3 className="font-bold text-lg">🏍️ {activeJob.bike}</h3>
-        <p className="text-sm text-grey-muted">{activeJob.customerName} • {st.label}</p>
-        {activeJob.laborCharge != null && activeJob.laborCharge > 0 && (
-          <p className="text-sm font-semibold text-blue-primary mt-1">Total Charges: {formatCurrency(activeJob.laborCharge)}</p>
+        <h3 className="font-bold text-lg">{activeJob.bike}</h3>
+        <p className="text-sm text-grey-muted">{activeJob.customerName}</p>
+        {activeJob.issue && (
+          <p className="text-xs text-grey-muted mt-1 italic">"{activeJob.issue}"</p>
+        )}
+        {laborCharge > 0 && (
+          <div className="mt-2 inline-block bg-blue-light rounded-xl px-4 py-2">
+            <span className="text-lg font-bold text-blue-primary">{formatCurrency(laborCharge)}</span>
+            <span className="text-xs text-blue-primary/70 ml-1">total charge</span>
+          </div>
         )}
       </Card>
 
@@ -115,8 +158,8 @@ export default function ActiveJob() {
             <Wrench size={14} /> Services
           </h4>
           <div className="flex flex-wrap gap-1.5">
-            {jobServices.map(svc => (
-              <span key={svc} className="bg-blue-light text-blue-primary text-xs font-semibold px-2.5 py-1 rounded-lg">
+            {jobServices.map((svc, i) => (
+              <span key={`svc-${i}`} className="bg-blue-light text-blue-primary text-xs font-semibold px-2.5 py-1 rounded-lg">
                 {svc}
               </span>
             ))}
@@ -124,39 +167,70 @@ export default function ActiveJob() {
         </div>
       )}
 
-      {/* Parts from check-in */}
-      {jobCheckinParts.length > 0 && (
+      {/* Parts from check-in — bill format */}
+      {checkinPartsBill.length > 0 && (
         <div>
           <h4 className="text-sm font-bold text-grey-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
             <Package size={14} /> Parts (from check-in)
           </h4>
-          <div className="flex flex-wrap gap-1.5">
-            {jobCheckinParts.map(part => (
-              <span key={part} className="bg-orange-light text-orange-action text-xs font-semibold px-2.5 py-1 rounded-lg">
-                {part}
-              </span>
-            ))}
+          <div className="border border-grey-border rounded-xl overflow-hidden">
+            <div className="divide-y divide-grey-border/50">
+              {checkinPartsBill.map(p => (
+                <div key={p.name} className="flex items-center justify-between px-3 py-2">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-semibold">{p.name}</span>
+                    {p.price > 0 && <span className="text-[11px] text-grey-muted ml-1">₹{p.price}</span>}
+                  </div>
+                  {p.qty > 1 && <span className="text-xs text-grey-muted mx-2">x{p.qty}</span>}
+                  {p.price > 0 && <span className="text-sm font-bold">₹{p.price * p.qty}</span>}
+                </div>
+              ))}
+            </div>
+            {checkinPartsTotal > 0 && (
+              <div className="flex items-center justify-between px-3 py-2 bg-orange-light/30 border-t border-grey-border">
+                <span className="text-xs font-bold text-grey-muted">Parts Total</span>
+                <span className="text-sm font-bold text-orange-action">₹{checkinPartsTotal}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Photos */}
-      <div className="grid grid-cols-2 gap-3">
-        <PhotoCapture
-          label="📷 Before"
-          value={activeJob.photoBefore}
-          onCapture={(file) => {
-            photoService.uploadPhoto(activeJob.id, file, 'before').catch(() => {});
-          }}
-        />
-        <PhotoCapture
-          label="📷 After"
-          value={activeJob.photoAfter}
-          onCapture={(file) => {
-            photoService.uploadPhoto(activeJob.id, file, 'after').catch(() => {});
-          }}
-        />
-      </div>
+      {/* Photos from storage */}
+      {(jobPhotos.length > 0 || loadingMedia) && (
+        <div>
+          <h4 className="text-sm font-bold text-grey-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Image size={14} /> Photos
+          </h4>
+          {loadingMedia ? (
+            <div className="text-xs text-grey-muted">Loading photos...</div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {jobPhotos.map((url, i) => (
+                <div key={i} className="w-20 h-20 rounded-xl overflow-hidden border border-grey-border">
+                  <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Audio from storage */}
+      {jobAudioUrls.length > 0 && (
+        <div>
+          <h4 className="text-sm font-bold text-grey-muted uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Volume2 size={14} /> Voice Notes
+          </h4>
+          <div className="space-y-2">
+            {jobAudioUrls.map((url, i) => (
+              <audio key={i} controls className="w-full h-10" preload="metadata">
+                <source src={url} />
+              </audio>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Parts Used */}
       <div>
@@ -169,7 +243,7 @@ export default function ActiveJob() {
               <div key={i} className="flex items-center justify-between bg-white rounded-xl p-3 shadow-sm">
                 <div>
                   <div className="text-sm font-semibold">{p.name}</div>
-                  <div className="text-xs text-grey-muted">Qty: {p.qty} • {formatCurrency(p.price)}</div>
+                  <div className="text-xs text-grey-muted">Qty: {p.qty} {p.price > 0 ? `• ${formatCurrency(p.price)}` : ''}</div>
                 </div>
                 <button onClick={() => removePart(i)} className="text-red-urgent text-xs font-semibold px-2 py-1 rounded-lg hover:bg-red-light cursor-pointer">
                   ✕
@@ -179,7 +253,7 @@ export default function ActiveJob() {
           </div>
         )}
         <Button variant="outline" block className="mt-3" onClick={() => setPartsModalOpen(true)}>
-          ➕ Add Part
+          + Add Part
         </Button>
       </div>
 
@@ -204,7 +278,7 @@ export default function ActiveJob() {
       </div>
 
       <Button variant="success" size="lg" block onClick={handleComplete}>
-        ✅ COMPLETE JOB
+        COMPLETE JOB
       </Button>
 
       {/* Parts Modal */}

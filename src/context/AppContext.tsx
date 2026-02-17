@@ -248,7 +248,19 @@ export function AppProvider({ children }) {
       });
     } else if (eventType === 'UPDATE') {
       const mapped = mapJobFromDb(payload.new);
-      setJobs(prev => prev.map(j => j.id === mapped.id ? mapped : j));
+      // Merge with existing job to preserve fields that Realtime might not include
+      setJobs(prev => prev.map(j => {
+        if (j.id !== mapped.id) return j;
+        return {
+          ...j,
+          ...mapped,
+          // Preserve arrays if Realtime returned empty but existing has data
+          services: mapped.services?.length ? mapped.services : j.services,
+          checkinParts: mapped.checkinParts?.length ? mapped.checkinParts : j.checkinParts,
+          partsUsed: mapped.partsUsed?.length ? mapped.partsUsed : j.partsUsed,
+          partsNeeded: mapped.partsNeeded?.length ? mapped.partsNeeded : j.partsNeeded,
+        };
+      }));
     } else if (eventType === 'DELETE') {
       setJobs(prev => prev.filter(j => j.id !== payload.old.id));
     }

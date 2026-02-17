@@ -7,7 +7,7 @@ import { bikeService } from '../../services/bikeService';
 import { photoService } from '../../services/photoService';
 import type { Bike } from '../../types/bike';
 import Button from '../../components/ui/Button';
-import PhotoCapture from '../../components/ui/PhotoCapture';
+import MultiPhotoCapture from '../../components/ui/MultiPhotoCapture';
 import VoiceInput from '../../components/ui/VoiceInput';
 import { ChevronDown, X, Plus, Minus, Trash2 } from 'lucide-react';
 
@@ -37,7 +37,7 @@ export default function CheckIn() {
   const [partsOpen, setPartsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
 
   // Customer lookup state
   const [customerBikes, setCustomerBikes] = useState<Bike[]>([]);
@@ -168,9 +168,9 @@ export default function CheckIn() {
         customerId: form.customerId || undefined,
       };
       const job = await createJob(jobData);
-      // Upload photo & audio in background
+      // Upload photos & audio in background
       if (job?.id) {
-        if (photoFile) photoService.uploadPhoto(job.id, photoFile, 'before').catch(() => {});
+        if (photoFiles.length > 0) photoService.uploadPhotos(job.id, photoFiles).catch(() => {});
         if (audioFile) photoService.uploadAudio(job.id, audioFile).catch(() => {});
       }
       const mech = job ? mechanics.find(m => m.id === job.mechanicId) : null;
@@ -178,7 +178,7 @@ export default function CheckIn() {
       setForm({ customerName: '', customerPhone: '', customerId: '', bike: '', bikeId: '', serviceType: 'regular', totalCharge: '', issue: '', priority: 'standard' });
       setSelectedService(null);
       setPartLines([]);
-      setPhotoFile(null);
+      setPhotoFiles([]);
       setAudioFile(null);
       setCustomerBikes([]);
       setCustomerFound(false);
@@ -196,8 +196,10 @@ export default function CheckIn() {
     <div className="space-y-4">
       <h3 className="text-base font-bold">New Service Check-In</h3>
 
-      {/* Photo — Camera + Gallery options */}
-      <PhotoCapture label="Tap to take bike photo" onCapture={setPhotoFile} />
+      {/* Photos — up to 5 */}
+      <FormField label="Photos">
+        <MultiPhotoCapture maxPhotos={5} onPhotosChange={setPhotoFiles} disabled={isSubmitting} />
+      </FormField>
 
       {/* Phone */}
       <FormField label="Phone Number">

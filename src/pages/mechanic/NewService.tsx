@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import Button from '../../components/ui/Button';
-import PhotoCapture from '../../components/ui/PhotoCapture';
+import MultiPhotoCapture from '../../components/ui/MultiPhotoCapture';
 import { photoService } from '../../services/photoService';
 import VoiceInput from '../../components/ui/VoiceInput';
 import { ChevronDown, Plus, Minus, Trash2 } from 'lucide-react';
@@ -76,7 +76,7 @@ export default function NewService() {
   }, [servicePrice, partsTotal]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [audioFile, setAudioFile] = useState<File | null>(null);
 
   const handleSubmit = async () => {
@@ -94,7 +94,7 @@ export default function NewService() {
       };
       const job = await createJob(jobData);
       if (job?.id) {
-        if (photoFile) photoService.uploadPhoto(job.id, photoFile, 'before').catch(() => {});
+        if (photoFiles.length > 0) photoService.uploadPhotos(job.id, photoFiles).catch(() => {});
         if (audioFile) photoService.uploadAudio(job.id, audioFile).catch(() => {});
       }
       const mech = job ? mechanics.find(m => m.id === job.mechanicId) : null;
@@ -102,7 +102,7 @@ export default function NewService() {
       setForm({ customerName: '', customerPhone: '', bike: '', serviceType: 'regular', totalCharge: '', issue: '', priority: 'standard' });
       setSelectedService(null);
       setPartLines([]);
-      setPhotoFile(null);
+      setPhotoFiles([]);
       setAudioFile(null);
       navigate('/mechanic/today');
     } catch (err) {
@@ -118,7 +118,9 @@ export default function NewService() {
     <div className="space-y-4">
       <h3 className="text-base font-bold">New Service Check-In</h3>
 
-      <PhotoCapture label="Tap to take bike photo" onCapture={setPhotoFile} />
+      <FormField label="Photos">
+        <MultiPhotoCapture maxPhotos={5} onPhotosChange={setPhotoFiles} disabled={isSubmitting} />
+      </FormField>
 
       <FormField label="Customer Name">
         <input value={form.customerName} onChange={e => update('customerName', e.target.value)}
