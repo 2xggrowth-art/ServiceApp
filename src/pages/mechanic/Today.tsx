@@ -10,17 +10,19 @@ import Card from '../../components/ui/Card';
 export default function Today() {
   const { getMechanicJobs, currentMechanicId, pickJob, startJob, reassignJob, showToast, jobs, mechanics } = useApp();
   const navigate = useNavigate();
-  const [doneOpen, setDoneOpen] = useState(false);
   const myJobs = getMechanicJobs(currentMechanicId);
   const today = getToday();
 
-  const takeoverJobs = jobs.filter(j =>
-    j.mechanicId &&
-    j.mechanicId !== currentMechanicId &&
-    ![STATUS.COMPLETED, STATUS.READY, STATUS.QUALITY_CHECK].includes(j.status) &&
-    (j.date === today || j.date < today)
-  );
+  // --- Section data ---
+  const allMyJobs = myJobs.filter(j => j.mechanicId === currentMechanicId);
 
+  const doneStatuses = [STATUS.COMPLETED, STATUS.READY, STATUS.QUALITY_CHECK];
+
+  // In Progress: jobs currently being worked on (in_progress + parts_pending)
+  const inProgressJobs = allMyJobs.filter(j => j.status === STATUS.IN_PROGRESS || j.status === STATUS.PARTS_PENDING);
+
+  // Pending: assigned/received jobs not yet started (includes unassigned available to pick)
+  const pendingAssigned = allMyJobs.filter(j => [STATUS.RECEIVED, STATUS.ASSIGNED].includes(j.status));
   const unassignedJobs = myJobs
     .filter(j => j.status === STATUS.RECEIVED && !j.mechanicId)
     .sort((a, b) => {
@@ -28,24 +30,37 @@ export default function Today() {
       if (b.priority === 'urgent' && a.priority !== 'urgent') return 1;
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
-  const myAssignedJobs = myJobs.filter(j => j.mechanicId === currentMechanicId);
-  const carryoverJobs = myAssignedJobs.filter(j => j.date < today && j.status !== STATUS.COMPLETED);
-  const todayJobs = myAssignedJobs.filter(j => j.date === today);
+  const pendingJobs = [...pendingAssigned, ...unassignedJobs];
 
-  const done = myAssignedJobs.filter(j => [STATUS.COMPLETED, STATUS.READY, STATUS.QUALITY_CHECK].includes(j.status)).length;
-  const total = myAssignedJobs.length;
+  // Takeover: other mechanics' active jobs
+  const takeoverJobs = jobs.filter(j =>
+    j.mechanicId &&
+    j.mechanicId !== currentMechanicId &&
+    !doneStatuses.includes(j.status) &&
+    (j.date === today || j.date < today)
+  );
+
+  // Done
+  const doneJobs = allMyJobs.filter(j => doneStatuses.includes(j.status));
+
+  // Progress bar
+  const done = doneJobs.length;
+  const total = allMyJobs.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-  const doneStatuses = [STATUS.COMPLETED, STATUS.READY, STATUS.QUALITY_CHECK];
-  const activeTodayJobs = todayJobs.filter(j => !doneStatuses.includes(j.status));
-  const doneTodayJobs = todayJobs.filter(j => doneStatuses.includes(j.status));
-
-  const morning = activeTodayJobs.filter(j => j.timeBlock === 'morning');
-  const afternoon = activeTodayJobs.filter(j => j.timeBlock === 'afternoon');
 
   // Check if mechanic already has an active job (blocks starting another)
   const hasActiveJob = myJobs.some(j => j.mechanicId === currentMechanicId && j.status === STATUS.IN_PROGRESS);
 
+  // --- Collapsible section state (In Progress open by default) ---
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    inProgress: true,
+    pending: true,
+    takeover: false,
+    done: false,
+  });
+  const toggle = (key: string) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+
+  // --- Handlers ---
   const handlePick = async (jobId) => {
     haptic(80);
     try {
@@ -79,7 +94,7 @@ export default function Today() {
     }
   };
 
-  /** Full-width chunky action buttons — minimum 56-64px tall */
+  /** Full-width chunky action buttons */
   const getActions = (job) => {
     if (job.mechanicId && job.mechanicId !== currentMechanicId) {
       return (
@@ -149,8 +164,8 @@ export default function Today() {
   };
 
   return (
-    <div className="space-y-5" style={{ fontFamily: 'var(--font-mechanic)' }}>
-      {/* Progress — thick bar visible from distance */}
+    <div className="space-y-4" style={{ fontFamily: 'var(--font-mechanic)' }}>
+      {/* Progress bar */}
       <Card className="!p-5">
         <div className="flex justify-between items-end mb-3">
           <span className="text-base font-bold text-black">Today's Progress</span>
@@ -171,80 +186,56 @@ export default function Today() {
         </div>
       </Card>
 
-      {/* Available Jobs to Pick */}
-      {unassignedJobs.length > 0 && (
-        <>
-          <SectionLabel color="text-blue-primary" emoji="🎯" text="Available — Pick One" />
-          {unassignedJobs.map(job => (
+      {/* 1. In Progress */}
+      {inProgressJobs.length > 0 && (
+        <CollapsibleSection
+          emoji="🔧" label="In Progress" count={inProgressJobs.length}
+          color="text-blue-primary" open={openSections.inProgress} onToggle={() => toggle('inProgress')}
+        >
+          {inProgressJobs.map(job => (
             <JobCard key={job.id} job={job} hideTime actions={getActions(job)} />
           ))}
-        </>
+        </CollapsibleSection>
       )}
 
-      {/* Take over jobs */}
+      {/* 2. Pending */}
+      {pendingJobs.length > 0 && (
+        <CollapsibleSection
+          emoji="⏳" label="Pending" count={pendingJobs.length}
+          color="text-orange-action" open={openSections.pending} onToggle={() => toggle('pending')}
+        >
+          {pendingJobs.map(job => (
+            <JobCard key={job.id} job={job} hideTime actions={getActions(job)} />
+          ))}
+        </CollapsibleSection>
+      )}
+
+      {/* 3. Takeover */}
       {takeoverJobs.length > 0 && (
-        <>
-          <SectionLabel color="text-orange-action" emoji="🔄" text="Take Over" />
+        <CollapsibleSection
+          emoji="🔄" label="Takeover" count={takeoverJobs.length}
+          color="text-orange-action" open={openSections.takeover} onToggle={() => toggle('takeover')}
+        >
           {takeoverJobs.map(job => {
             const mech = mechanics.find(m => m.id === job.mechanicId);
             return <JobCard key={job.id} job={job} hideTime mechanic={mech} actions={getActions(job)} />;
           })}
-        </>
+        </CollapsibleSection>
       )}
 
-      {/* Carryover */}
-      {carryoverJobs.length > 0 && (
-        <>
-          <SectionLabel color="text-red-urgent" emoji="📌" text="Ongoing" />
-          {carryoverJobs.map(job => (
-            <JobCard key={job.id} job={job} hideTime actions={getActions(job)} />
+      {/* 4. Done */}
+      {doneJobs.length > 0 && (
+        <CollapsibleSection
+          emoji="✅" label="Done" count={doneJobs.length}
+          color="text-green-success" open={openSections.done} onToggle={() => toggle('done')}
+        >
+          {doneJobs.map(job => (
+            <JobCard key={job.id} job={job} hideTime dimCompleted />
           ))}
-        </>
+        </CollapsibleSection>
       )}
 
-      {/* Morning */}
-      {morning.length > 0 && (
-        <>
-          <SectionLabel color="text-black" emoji="☀️" text="Morning" />
-          {morning.map(job => (
-            <JobCard key={job.id} job={job} hideTime dimCompleted actions={getActions(job)} />
-          ))}
-        </>
-      )}
-
-      {/* Afternoon */}
-      {afternoon.length > 0 && (
-        <>
-          <SectionLabel color="text-black" emoji="🌅" text="Afternoon" />
-          {afternoon.map(job => (
-            <JobCard key={job.id} job={job} hideTime dimCompleted actions={getActions(job)} />
-          ))}
-        </>
-      )}
-
-      {/* Done — collapsible */}
-      {doneTodayJobs.length > 0 && (
-        <div>
-          <button
-            onClick={() => setDoneOpen(prev => !prev)}
-            className="w-full flex items-center justify-between text-base font-bold text-green-success cursor-pointer"
-          >
-            <span className="flex items-center gap-2">
-              <span className="text-xl">✅</span> Done ({doneTodayJobs.length})
-            </span>
-            <span className={`text-lg transition-transform duration-200 ${doneOpen ? 'rotate-180' : ''}`}>▼</span>
-          </button>
-          {doneOpen && (
-            <div className="mt-3 space-y-3">
-              {doneTodayJobs.map(job => (
-                <JobCard key={job.id} job={job} hideTime dimCompleted />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Empty — bold, simple */}
+      {/* Empty state */}
       {myJobs.length === 0 && (
         <div className="text-center py-20">
           <div className="text-6xl mb-4">✅</div>
@@ -256,10 +247,26 @@ export default function Today() {
   );
 }
 
-function SectionLabel({ color, emoji, text }: { color: string; emoji: string; text: string }) {
+function CollapsibleSection({ emoji, label, count, color, open, onToggle, children }: {
+  emoji: string; label: string; count: number; color: string;
+  open: boolean; onToggle: () => void; children: React.ReactNode;
+}) {
   return (
-    <div className={`text-base font-bold ${color} flex items-center gap-2`}>
-      <span className="text-xl">{emoji}</span> {text}
+    <div>
+      <button
+        onClick={onToggle}
+        className={`w-full flex items-center justify-between text-base font-bold ${color} cursor-pointer py-2 bg-transparent border-none outline-none`}
+      >
+        <span className="flex items-center gap-2">
+          <span className="text-xl">{emoji}</span> {label} ({count})
+        </span>
+        <span className={`text-lg transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

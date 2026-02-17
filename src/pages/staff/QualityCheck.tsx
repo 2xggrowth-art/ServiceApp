@@ -78,7 +78,7 @@ export default function QualityCheck() {
         </div>
       ) : (
         qcJobs.map(job => (
-          <JobCard key={job.id} job={job} mechanic={mechMap[job.mechanicId]}
+          <JobCard key={job.id} job={job} mechanic={mechMap[job.mechanicId]} hideTime
             actions={
               <Button size="sm" variant="warning" onClick={() => openQcModal(job)}>QC Check</Button>
             }

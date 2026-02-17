@@ -5,7 +5,9 @@ import { STATUS } from '../../lib/constants';
 import { formatCurrency } from '../../lib/helpers';
 import { haptic } from '../../lib/haptic';
 import Card from '../../components/ui/Card';
-import { Wrench, Package, Image, Volume2 } from 'lucide-react';
+import PhotoGallery from '../../components/ui/PhotoGallery';
+import { Wrench, Package, Volume2 } from 'lucide-react';
+
 /** Parse photoBefore field: could be JSON array of URLs or single URL */
 function parsePhotoUrls(val?: string): string[] {
   if (!val) return [];
@@ -30,6 +32,7 @@ export default function ActiveJob() {
   const isPartsPending = activeJob?.status === STATUS.PARTS_PENDING;
 
   const [partsUsed, setPartsUsed] = useState([]);
+  const [partsSearch, setPartsSearch] = useState('');
 
   // Load existing parts
   useEffect(() => {
@@ -178,21 +181,8 @@ export default function ActiveJob() {
         )}
       </Card>
 
-      {/* Check-in Photos */}
-      {jobPhotos.length > 0 && (
-        <div>
-          <h4 className="text-sm font-bold text-black uppercase tracking-wider mb-3 flex items-center gap-2">
-            <Image size={16} /> Check-in Photos
-          </h4>
-          <div className="grid grid-cols-3 gap-2">
-            {jobPhotos.map((url, i) => (
-              <div key={i} className="aspect-square rounded-2xl overflow-hidden border-2 border-gray-200">
-                <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Check-in Photos — large preview with tap-to-zoom */}
+      <PhotoGallery photos={jobPhotos} label="Check-in Photos" />
 
       {/* Voice Note */}
       {audioUrl && (
@@ -235,28 +225,47 @@ export default function ActiveJob() {
         </div>
       )}
 
-      {/* Parts — tap to add, tap added part to +1, long-press to remove */}
+      {/* Parts — search to add */}
       <div>
-        <h4 className="text-sm font-bold text-black uppercase tracking-wider mb-3">
-          <Wrench size={14} className="inline mr-1.5" /> Tap to add parts
+        <h4 className="text-sm font-bold text-black uppercase tracking-wider flex items-center gap-2 mb-2">
+          <Wrench size={14} /> Add Parts {partsUsed.length > 0 && `(${partsUsed.length})`}
         </h4>
-        <div className="flex flex-wrap gap-2">
-          {partsList.map(name => {
-            const added = partsUsed.find(p => p.name === name);
-            return (
-              <button
-                key={name}
-                onClick={() => handleTapPart(name)}
-                className={`px-4 py-2.5 rounded-2xl text-sm font-bold cursor-pointer active:scale-95 transition-transform
-                  ${added ? 'bg-blue-primary text-white' : 'bg-white border-2 border-gray-300 text-black active:bg-gray-100'}`}
-              >
-                {name}{added ? ` ×${added.qty}` : ''}
-              </button>
-            );
-          })}
-        </div>
 
-        {/* Added parts summary with remove */}
+        {/* Search input */}
+        <input
+          type="text"
+          value={partsSearch}
+          onChange={e => setPartsSearch(e.target.value)}
+          placeholder="Type to search parts..."
+          className="w-full px-4 py-3 border-2 border-gray-300 rounded-2xl text-sm font-medium text-black bg-white focus:border-blue-primary focus:outline-none"
+        />
+
+        {/* Matching parts — only show when typing */}
+        {partsSearch.trim().length > 0 && (() => {
+          const query = partsSearch.trim().toLowerCase();
+          const matches = partsList.filter(name => name.toLowerCase().includes(query));
+          return matches.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {matches.map(name => {
+                const added = partsUsed.find(p => p.name === name);
+                return (
+                  <button
+                    key={name}
+                    onClick={() => { handleTapPart(name); setPartsSearch(''); }}
+                    className={`px-4 py-2.5 rounded-2xl text-sm font-bold cursor-pointer active:scale-95 transition-transform
+                      ${added ? 'bg-blue-primary text-white' : 'bg-white border-2 border-gray-300 text-black active:bg-gray-100'}`}
+                  >
+                    {name}{added ? ` ×${added.qty}` : ''}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-black/40 font-medium">No parts found</p>
+          );
+        })()}
+
+        {/* Added parts summary — always visible */}
         {partsUsed.length > 0 && (
           <div className="mt-3 border-2 border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-100">
             {partsUsed.map((p, i) => (

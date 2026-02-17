@@ -5,15 +5,17 @@
 
 export type WhatsAppStage = 'received' | 'in_progress' | 'quality_check' | 'ready';
 
+const FOOTER = `\n\nFor all service related queries, call us on this number.\n— Bharath Cycle Hub`;
+
 const TEMPLATES: Record<WhatsAppStage, (name: string, bike: string, quote?: string) => string> = {
   received: (name, bike, quote) =>
-    `Hi ${name}, your ${bike} has been received at Bharath Cycle Hub.${quote ? ` Estimated cost: ${quote}.` : ''} We'll update you on the progress! 🚲`,
+    `Hi ${name}, your ${bike} has been received at Bharath Cycle Hub.${quote ? ` Estimated cost: ${quote}.` : ''} We'll update you on the progress! 🚲${FOOTER}`,
   in_progress: (name, bike, quote) =>
-    `Hi ${name}, work has started on your ${bike} at Bharath Cycle Hub.${quote ? ` Estimated cost: ${quote}.` : ''} We'll notify you once it's done! 🔧`,
+    `Hi ${name}, work has started on your ${bike} at Bharath Cycle Hub.${quote ? ` Estimated cost: ${quote}.` : ''} We'll notify you once it's done! 🔧${FOOTER}`,
   quality_check: (name, bike, quote) =>
-    `Hi ${name}, your ${bike} has passed quality check and is almost ready for pickup!${quote ? ` Total: ${quote}.` : ''} ✅`,
+    `Hi ${name}, your ${bike} has passed quality check and is almost ready for pickup!${quote ? ` Total: ${quote}.` : ''} ✅${FOOTER}`,
   ready: (name, bike, quote) =>
-    `Hi ${name}, your ${bike} is ready for pickup at Bharath Cycle Hub!${quote ? ` Total: ${quote}.` : ''} 🎉`,
+    `Hi ${name}, your ${bike} is ready for pickup at Bharath Cycle Hub!${quote ? ` Total: ${quote}.` : ''} 🎉${FOOTER}`,
 };
 
 /** Clean phone number and add India country code */
