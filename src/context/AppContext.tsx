@@ -352,15 +352,15 @@ export function AppProvider({ children }) {
     // Poll immediately on mount so new jobs appear right away
     pollData();
 
-    // Poll every 90s to minimize API calls
-    let interval = setInterval(pollData, 90000);
+    // Poll every 3 min to minimize API calls
+    let interval = setInterval(pollData, 180000);
 
     // Pause polling when tab is hidden (saves battery + API calls)
     // Resume + immediate poll when tab regains focus
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         pollData();
-        interval = setInterval(pollData, 90000);
+        interval = setInterval(pollData, 180000);
       } else {
         clearInterval(interval);
       }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { config } from '../../lib/config';
 import { activityLogService } from '../../services/activityLogService';
 import { useApp } from '../../context/AppContext';
@@ -72,14 +72,19 @@ export default function AuditLog() {
     }
   };
 
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
     if (!config.useSupabase || !navigator.onLine) {
       setLoading(false);
       return;
     }
-    setPage(0);
-    setLogs([]);
-    loadLogs(0);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setPage(0);
+      setLogs([]);
+      loadLogs(0);
+    }, 400);
+    return () => clearTimeout(debounceRef.current);
   }, [filter, mechanicFilter, dateFrom, dateTo]);
 
   const loadMore = () => {

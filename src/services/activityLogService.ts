@@ -23,8 +23,8 @@ interface LogEntry {
 }
 
 // Batch queue — collects logs and flushes periodically
-const LOG_BATCH_SIZE = 5;
-const LOG_FLUSH_INTERVAL = 5000; // 5 seconds
+const LOG_BATCH_SIZE = 10;
+const LOG_FLUSH_INTERVAL = 15000; // 15 seconds
 let logQueue: LogEntry[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
