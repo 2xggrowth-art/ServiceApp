@@ -27,7 +27,7 @@ const ADMIN_NAV = [
 const NAV_CONFIG: Record<string, typeof ADMIN_NAV> = {
   staff: [
     { path: '/staff/checkin',    icon: PlusCircle,     label: 'Check In' },
-    { path: '/staff/queue',      icon: ClipboardList,  label: 'Queue' },
+    { path: '/admin/assign',     icon: UserCheck,      label: 'Assign' },
     { path: '/staff/customers',  icon: Phone,          label: 'Customers' },
     { path: '/staff/pickup',     icon: Wallet,         label: 'Pickup' },
     { path: '/staff/parts',      icon: Wrench,         label: 'Parts' },

@@ -70,12 +70,12 @@ function AppRoutes() {
           <Route path="/staff/parts" element={<StaffParts />} />
           <Route path="/staff/customers" element={<Customers />} />
           <Route path="/admin/services" element={<ServiceOptions />} />
+          <Route path="/admin/assign" element={<Assign />} />
         </Route>
 
         {/* Admin routes — owner and admin only */}
         <Route element={<ProtectedRoute allowedRoles={['owner', 'admin']} />}>
           <Route path="/admin/dashboard" element={<Dashboard />} />
-          <Route path="/admin/assign" element={<Assign />} />
           <Route path="/admin/team" element={<Team />} />
           <Route path="/admin/customers" element={<Customers />} />
           <Route path="/admin/audit" element={<AuditLog />} />
