@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { Camera, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Camera, X, ChevronLeft, ChevronRight, Play } from 'lucide-react';
+
+const VIDEO_EXTS = ['.mp4', '.webm', '.mov', '.3gp'];
+function isVideoUrl(url: string): boolean {
+  const path = url.split('?')[0].toLowerCase();
+  return VIDEO_EXTS.some(ext => path.endsWith(ext));
+}
 
 interface PhotoGalleryProps {
   photos: string[];
@@ -43,36 +49,21 @@ export default function PhotoGallery({ photos, label = 'Check-in Photos' }: Phot
         <span className="text-xs text-black/50 font-medium ml-auto">Tap to zoom</span>
       </div>
 
-      {/* Single photo — show large */}
+      {/* Single photo/video — show large */}
       {photos.length === 1 && (
         <button
           onClick={() => openLightbox(0)}
-          className="w-full aspect-[4/3] rounded-2xl overflow-hidden border-2 border-gray-200 cursor-pointer active:scale-[0.98] transition-transform"
+          className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border-2 border-gray-200 cursor-pointer active:scale-[0.98] transition-transform"
         >
-          <img
-            src={photos[0]}
-            alt="Check-in photo"
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={e => {
-              (e.target as HTMLImageElement).style.display = 'none';
-              (e.target as HTMLImageElement).parentElement!.classList.add('bg-gray-100');
-            }}
-          />
-        </button>
-      )}
-
-      {/* Multiple photos — hero + thumbnails */}
-      {photos.length > 1 && (
-        <div className="space-y-2">
-          {/* Hero image (first photo) */}
-          <button
-            onClick={() => openLightbox(0)}
-            className="w-full aspect-[4/3] rounded-2xl overflow-hidden border-2 border-gray-200 cursor-pointer active:scale-[0.98] transition-transform"
-          >
+          {isVideoUrl(photos[0]) ? (
+            <>
+              <video src={photos[0]} className="w-full h-full object-cover" muted preload="metadata" />
+              <div className="absolute inset-0 flex items-center justify-center"><div className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center"><Play size={24} className="text-white ml-0.5" /></div></div>
+            </>
+          ) : (
             <img
               src={photos[0]}
-              alt="Check-in photo 1"
+              alt="Check-in photo"
               className="w-full h-full object-cover"
               loading="lazy"
               onError={e => {
@@ -80,26 +71,62 @@ export default function PhotoGallery({ photos, label = 'Check-in Photos' }: Phot
                 (e.target as HTMLImageElement).parentElement!.classList.add('bg-gray-100');
               }}
             />
+          )}
+        </button>
+      )}
+
+      {/* Multiple photos/videos — hero + thumbnails */}
+      {photos.length > 1 && (
+        <div className="space-y-2">
+          {/* Hero (first item) */}
+          <button
+            onClick={() => openLightbox(0)}
+            className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden border-2 border-gray-200 cursor-pointer active:scale-[0.98] transition-transform"
+          >
+            {isVideoUrl(photos[0]) ? (
+              <>
+                <video src={photos[0]} className="w-full h-full object-cover" muted preload="metadata" />
+                <div className="absolute inset-0 flex items-center justify-center"><div className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center"><Play size={24} className="text-white ml-0.5" /></div></div>
+              </>
+            ) : (
+              <img
+                src={photos[0]}
+                alt="Check-in photo 1"
+                className="w-full h-full object-cover"
+                loading="lazy"
+                onError={e => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                  (e.target as HTMLImageElement).parentElement!.classList.add('bg-gray-100');
+                }}
+              />
+            )}
           </button>
 
-          {/* Thumbnail strip for remaining photos */}
+          {/* Thumbnail strip */}
           <div className="flex gap-2 overflow-x-auto pb-1">
             {photos.slice(1).map((url, i) => (
               <button
                 key={i}
                 onClick={() => openLightbox(i + 1)}
-                className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-gray-200 cursor-pointer active:scale-95 transition-transform"
+                className="relative w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-gray-200 cursor-pointer active:scale-95 transition-transform"
               >
-                <img
-                  src={url}
-                  alt={`Photo ${i + 2}`}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                  onError={e => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                    (e.target as HTMLImageElement).parentElement!.classList.add('bg-gray-100');
-                  }}
-                />
+                {isVideoUrl(url) ? (
+                  <>
+                    <video src={url} className="w-full h-full object-cover" muted preload="metadata" />
+                    <div className="absolute inset-0 flex items-center justify-center"><div className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center"><Play size={10} className="text-white ml-0.5" /></div></div>
+                  </>
+                ) : (
+                  <img
+                    src={url}
+                    alt={`Photo ${i + 2}`}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    onError={e => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      (e.target as HTMLImageElement).parentElement!.classList.add('bg-gray-100');
+                    }}
+                  />
+                )}
               </button>
             ))}
           </div>
@@ -125,14 +152,24 @@ export default function PhotoGallery({ photos, label = 'Check-in Photos' }: Phot
             </button>
           </div>
 
-          {/* Image */}
+          {/* Image or Video */}
           <div className="flex-1 flex items-center justify-center px-4 min-h-0">
-            <img
-              src={photos[lightboxIndex]}
-              alt={`Photo ${lightboxIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
-              onClick={e => e.stopPropagation()}
-            />
+            {isVideoUrl(photos[lightboxIndex]) ? (
+              <video
+                src={photos[lightboxIndex]}
+                className="max-w-full max-h-full object-contain"
+                controls
+                autoPlay
+                onClick={e => e.stopPropagation()}
+              />
+            ) : (
+              <img
+                src={photos[lightboxIndex]}
+                alt={`Photo ${lightboxIndex + 1}`}
+                className="max-w-full max-h-full object-contain"
+                onClick={e => e.stopPropagation()}
+              />
+            )}
           </div>
 
           {/* Navigation arrows (only for multiple photos) */}

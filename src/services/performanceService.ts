@@ -10,6 +10,7 @@ import type { MechanicStats, DailyStats, LeaderboardEntry, SlowJob } from '../ty
 // Simple TTL cache to reduce repeated fetches
 const cache = new Map<string, { data: unknown; expiry: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const SLOW_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for slow-changing data
 
 function getCached<T>(key: string): T | null {
   const entry = cache.get(key);
@@ -18,8 +19,8 @@ function getCached<T>(key: string): T | null {
   return null;
 }
 
-function setCache(key: string, data: unknown) {
-  cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
+function setCache(key: string, data: unknown, ttl = CACHE_TTL) {
+  cache.set(key, { data, expiry: Date.now() + ttl });
 }
 
 export const performanceService = {
@@ -135,7 +136,7 @@ export const performanceService = {
       overtimePct: Number(row.overtime_pct) || 0,
       completedAt: row.completed_at as string,
     }));
-    setCache(cacheKey, result);
+    setCache(cacheKey, result, SLOW_CACHE_TTL);
     return result;
   },
 };

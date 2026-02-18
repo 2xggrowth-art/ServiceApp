@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { config } from '../../lib/config';
-import { supabase } from '../../lib/supabase';
 import PinPad from '../../pages/auth/PinPad';
 import { ArrowLeft, Check } from 'lucide-react';
 
@@ -14,33 +13,13 @@ export default function SwitchMechanicSheet({ isOpen, onClose }) {
   const [pinError, setPinError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load mechanics list
+  // Use mechanics from context (already kept fresh by polling + realtime — no extra API call)
   useEffect(() => {
     if (!isOpen) return;
-
-    const fallbackList = mechanics.map(m => ({
+    setMechanicList(mechanics.map(m => ({
       id: m.id, name: m.name, phone: m.phone,
       avatar: m.avatar, color: m.color, level: m.role,
-    }));
-
-    if (config.useSupabase && supabase && navigator.onLine) {
-      supabase.rpc('get_active_mechanics').then(({ data }) => {
-        if (data) {
-          setMechanicList(data.map(m => ({
-            id: m.user_id,
-            name: m.user_name,
-            phone: m.user_phone,
-            avatar: m.user_avatar,
-            color: m.user_color,
-            level: m.user_mechanic_level,
-          })));
-        }
-      }).catch(() => {
-        setMechanicList(fallbackList);
-      });
-    } else {
-      setMechanicList(fallbackList);
-    }
+    })));
   }, [isOpen, mechanics]);
 
   const handleMechanicTap = useCallback((mechanic) => {

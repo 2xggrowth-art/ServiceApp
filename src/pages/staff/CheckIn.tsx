@@ -388,13 +388,12 @@ export default function CheckIn() {
         </div>
       )}
 
-      {/* Total Charges (editable) */}
+      {/* Total Charges (auto-calculated, read-only) */}
       <FloatingField label="Total Charges (₹)" hasValue={!!form.totalCharge}>
-        <input type="number" inputMode="numeric" min="0"
+        <input type="number" inputMode="numeric"
           value={form.totalCharge}
-          onChange={e => update('totalCharge', e.target.value)}
-          placeholder="Auto-calculated or enter manually"
-          className="form-input" />
+          readOnly
+          className="form-input bg-gray-50 cursor-not-allowed" />
       </FloatingField>
 
       {/* Issue / Notes with secondary utility buttons */}
@@ -477,7 +476,6 @@ const PartsDropdown = forwardRef<HTMLDivElement, PartsDropdownProps>(
       : options;
 
     useEffect(() => {
-      if (isOpen && searchRef.current) searchRef.current.focus();
       if (!isOpen) setSearch('');
     }, [isOpen]);
 

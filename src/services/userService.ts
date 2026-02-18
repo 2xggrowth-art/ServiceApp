@@ -97,14 +97,14 @@ export const userService = {
       status: 'on_duty',
     };
 
-    // Hash PIN if provided
+    // Hash PIN if provided — this MUST succeed for login to work
     if (userData.pin) {
       const { data: hashData, error: hashError } = await supabase.rpc('hash_pin', {
         p_pin: userData.pin,
       });
-      if (!hashError && hashData) {
-        insertData.pin_hash = hashData;
-      }
+      if (hashError) throw new Error('Failed to hash PIN: ' + hashError.message);
+      if (!hashData) throw new Error('Failed to hash PIN: no data returned');
+      insertData.pin_hash = hashData;
     }
 
     const { data, error } = await supabase
@@ -134,9 +134,9 @@ export const userService = {
       const { data: hashData, error: hashError } = await supabase.rpc('hash_pin', {
         p_pin: userData.pin,
       });
-      if (!hashError && hashData) {
-        updateData.pin_hash = hashData;
-      }
+      if (hashError) throw new Error('Failed to hash PIN: ' + hashError.message);
+      if (!hashData) throw new Error('Failed to hash PIN: no data returned');
+      updateData.pin_hash = hashData;
     }
 
     const { data, error } = await supabase

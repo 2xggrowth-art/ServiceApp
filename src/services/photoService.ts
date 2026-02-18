@@ -11,7 +11,7 @@ import { jobService } from './jobService';
 const BUCKET = 'job-photos';
 
 export const photoService = {
-  /** Upload a single photo for a job, returns the public URL */
+  /** Upload a single photo or video for a job, returns the public URL */
   async uploadPhoto(
     jobId: string | number,
     file: File,
@@ -19,13 +19,29 @@ export const photoService = {
   ): Promise<string | null> {
     if (!config.useSupabase || !supabase) return null;
 
-    const compressed = await compressImage(file);
-    const path = `jobs/${jobId}/photo_${index}_${Date.now()}.jpg`;
+    const isVideo = file.type.startsWith('video/');
+    let uploadBlob: Blob;
+    let contentType: string;
+    let ext: string;
+
+    if (isVideo) {
+      // Videos: upload as-is (no compression)
+      uploadBlob = file;
+      contentType = file.type || 'video/mp4';
+      ext = file.name.split('.').pop() || 'mp4';
+    } else {
+      // Images: compress for mobile networks
+      uploadBlob = await compressImage(file);
+      contentType = 'image/jpeg';
+      ext = 'jpg';
+    }
+
+    const path = `jobs/${jobId}/photo_${index}_${Date.now()}.${ext}`;
 
     const { error } = await supabase.storage
       .from(BUCKET)
-      .upload(path, compressed, {
-        contentType: 'image/jpeg',
+      .upload(path, uploadBlob, {
+        contentType,
         upsert: true,
       });
 
@@ -38,7 +54,7 @@ export const photoService = {
     return urlData.publicUrl;
   },
 
-  /** Upload multiple photos — returns URLs only (does NOT update job record) */
+  /** Upload multiple photos/videos — returns URLs only (does NOT update job record) */
   async uploadPhotosOnly(files: File[]): Promise<string[]> {
     if (!config.useSupabase || !supabase || files.length === 0) return [];
 
@@ -46,16 +62,31 @@ export const photoService = {
     const urls: string[] = [];
     for (let i = 0; i < files.length; i++) {
       try {
-        const compressed = await compressImage(files[i]);
-        const path = `jobs/pending/photo_${i}_${ts}.jpg`;
+        const file = files[i];
+        const isVideo = file.type.startsWith('video/');
+        let uploadBlob: Blob;
+        let contentType: string;
+        let ext: string;
+
+        if (isVideo) {
+          uploadBlob = file;
+          contentType = file.type || 'video/mp4';
+          ext = file.name.split('.').pop() || 'mp4';
+        } else {
+          uploadBlob = await compressImage(file);
+          contentType = 'image/jpeg';
+          ext = 'jpg';
+        }
+
+        const path = `jobs/pending/photo_${i}_${ts}.${ext}`;
         const { error } = await supabase.storage
           .from(BUCKET)
-          .upload(path, compressed, { contentType: 'image/jpeg', upsert: true });
+          .upload(path, uploadBlob, { contentType, upsert: true });
         if (error) throw error;
         const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
         if (urlData.publicUrl) urls.push(urlData.publicUrl);
       } catch (err) {
-        console.error(`[photoService] Failed to upload photo ${i}:`, err);
+        console.error(`[photoService] Failed to upload file ${i}:`, err);
       }
     }
     return urls;

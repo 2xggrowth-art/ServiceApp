@@ -35,13 +35,13 @@ export default function Today() {
   // Pending: assigned/received jobs not yet started (includes unassigned available to pick)
   const pendingAssigned = allMyJobs.filter(j => [STATUS.RECEIVED, STATUS.ASSIGNED].includes(j.status));
   const unassignedJobs = myJobs
-    .filter(j => j.status === STATUS.RECEIVED && !j.mechanicId)
+    .filter(j => j.status === STATUS.RECEIVED && !j.mechanicId);
+  const pendingJobs = [...pendingAssigned, ...unassignedJobs]
     .sort((a, b) => {
       if (a.priority === 'urgent' && b.priority !== 'urgent') return -1;
       if (b.priority === 'urgent' && a.priority !== 'urgent') return 1;
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
-  const pendingJobs = [...pendingAssigned, ...unassignedJobs];
 
   // Takeover: only other mechanics' actively worked jobs (in_progress / parts_pending)
   const takeoverJobs = jobs.filter(j =>

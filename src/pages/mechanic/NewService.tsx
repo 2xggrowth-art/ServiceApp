@@ -257,11 +257,10 @@ export default function NewService() {
       )}
 
       <FormField label="Labor Charge (₹)">
-        <input type="number" inputMode="numeric" min="0"
+        <input type="number" inputMode="numeric"
           value={form.totalCharge}
-          onChange={e => update('totalCharge', e.target.value)}
-          placeholder="Auto-calculated or enter manually"
-          className="form-input" />
+          readOnly
+          className="form-input bg-gray-50 cursor-not-allowed" />
       </FormField>
 
       <FormField label="Issue / Notes">

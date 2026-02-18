@@ -18,6 +18,7 @@ import { serviceOptionsService } from '../services/serviceOptionsService';
 import { activityLogService } from '../services/activityLogService';
 // WhatsApp notifications now use wa.me links (see src/lib/whatsapp.ts)
 import { zohoService } from '../services/zohoService';
+import { googleSheetsService, buildSheetPayload } from '../services/googleSheetsService';
 import type { Job, Mechanic, Part } from '../types';
 import type { ServiceOption } from '../services/serviceOptionsService';
 
@@ -44,6 +45,7 @@ interface AppContextValue {
   isOffline: boolean;
   isDataLoading: boolean;
   createJob: (data: Record<string, unknown>) => Promise<Job>;
+  editJob: (jobId: string | number, updates: Record<string, unknown>) => Promise<void>;
   pickJob: (jobId: string | number) => Promise<void>;
   startJob: (jobId: string | number) => Promise<void>;
   completeJob: (jobId: string | number, partsUsed?: unknown[]) => Promise<void>;
@@ -298,6 +300,7 @@ export function AppProvider({ children }) {
   // ============================================================
   const lastHeartbeatRef = useRef(0);
   const pollInFlightRef = useRef(false);
+  const pollCountRef = useRef(0);
 
   const pollData = useCallback(async () => {
     if (!config.useSupabase || !navigator.onLine) return;
@@ -305,19 +308,27 @@ export function AppProvider({ children }) {
     if (pollInFlightRef.current) return;
     pollInFlightRef.current = true;
     try {
-      // Throttle heartbeat to once per 60s (separate from poll interval)
+      // Throttle heartbeat to once per 120s
       const now = Date.now();
-      if (now - lastHeartbeatRef.current > 60000) {
+      if (now - lastHeartbeatRef.current > 120000) {
         lastHeartbeatRef.current = now;
         userService.heartbeat();
       }
 
-      const [jobsData, mechanicsData] = await Promise.all([
-        jobService.getJobsForDate(),
-        userService.getMechanics(),
-      ]);
-      if (jobsData) setJobs(jobsData);
-      if (mechanicsData) setMechanics(mechanicsData as unknown as Mechanic[]);
+      pollCountRef.current += 1;
+
+      // Mechanics list rarely changes — only fetch every 5th poll (~5 min)
+      if (pollCountRef.current % 5 === 1) {
+        const [jobsData, mechanicsData] = await Promise.all([
+          jobService.getJobsForDate(),
+          userService.getMechanics(),
+        ]);
+        if (jobsData) setJobs(jobsData);
+        if (mechanicsData) setMechanics(mechanicsData as unknown as Mechanic[]);
+      } else {
+        const jobsData = await jobService.getJobsForDate();
+        if (jobsData) setJobs(jobsData);
+      }
     } catch {
       // Silent — polling failure is not critical
     } finally {
@@ -326,24 +337,29 @@ export function AppProvider({ children }) {
   }, []);
   pollDataRef.current = pollData;
 
+  // Extract lock state for dependency tracking (AuthContext is untyped)
+  const isLocked = (auth as any)?.isLocked ?? false;
+
   useEffect(() => {
     if (!config.useSupabase || !auth?.isAuthenticated) return;
     // PIN users don't have authUserId — they need polling
     const isPinUser = !auth.appUser?.authUserId;
     if (!isPinUser) return;
+    // Don't poll while screen is locked (user is inactive)
+    if (isLocked) return;
 
     // Poll immediately on mount so new jobs appear right away
     pollData();
 
-    // Poll every 30s instead of 10s to reduce API calls by ~67%
-    let interval = setInterval(pollData, 30000);
+    // Poll every 90s to minimize API calls
+    let interval = setInterval(pollData, 90000);
 
     // Pause polling when tab is hidden (saves battery + API calls)
     // Resume + immediate poll when tab regains focus
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         pollData();
-        interval = setInterval(pollData, 30000);
+        interval = setInterval(pollData, 90000);
       } else {
         clearInterval(interval);
       }
@@ -354,7 +370,7 @@ export function AppProvider({ children }) {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [auth?.isAuthenticated, auth?.appUser?.authUserId, pollData]);
+  }, [auth?.isAuthenticated, auth?.appUser?.authUserId, isLocked, pollData]);
 
   // ============================================================
   // Toast helper
@@ -471,11 +487,30 @@ export function AppProvider({ children }) {
       case 'processPayment':
         await jobService.processPayment(args[0] as string, args[1] as string);
         break;
+      case 'syncJobToSheets': {
+        const payload = args[0] as import('../services/googleSheetsService').SheetJobPayload;
+        await googleSheetsService.syncJob(payload);
+        break;
+      }
       default:
         console.warn('Unknown queued action:', action);
     }
   }, []);
   replayActionRef.current = replayAction;
+
+  // Helper: sync a job snapshot to Google Sheets (fire-and-forget)
+  const syncJobToSheets = useCallback((job: Job, overrides?: Partial<Job>) => {
+    if (!googleSheetsService.isEnabled) return;
+    const merged = overrides ? { ...job, ...overrides } : job;
+    const payload = buildSheetPayload(merged, mechanics);
+    if (navigator.onLine) {
+      googleSheetsService.syncJob(payload).catch(async () => {
+        await offlineQueue.enqueue('syncJobToSheets', [payload]);
+      });
+    } else {
+      offlineQueue.enqueue('syncJobToSheets', [payload]).catch(() => {});
+    }
+  }, [mechanics]);
 
   // ============================================================
   // Job mutations — dual-mode (optimistic local + Supabase)
@@ -539,9 +574,35 @@ export function AppProvider({ children }) {
     // Optimistic local update (realtime will also deliver it)
     setJobs(prev => [...prev, created]);
     activityLogService.log('job_created', { jobId: created.id, userId: auth?.appUser?.id }).catch(() => {});
+    syncJobToSheets(created);
     // WhatsApp notification is handled in CheckIn/NewService via wa.me links
     return created;
   }, [auth?.appUser?.id]);
+
+  const editJob = useCallback(async (jobId: string | number, updates: Record<string, unknown>) => {
+    // Only allow editing jobs that haven't been picked up yet
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) throw new Error('Job not found');
+    if (job.status !== STATUS.RECEIVED) {
+      showToast('Can only edit unassigned jobs', 'error');
+      return;
+    }
+
+    // Optimistic local update
+    setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...updates } : j));
+
+    if (config.useSupabase) {
+      try {
+        await jobService.updateJobStatus(jobId as string, undefined, updates);
+        const updatedJob = { ...job, ...updates } as Job;
+        syncJobToSheets(updatedJob);
+      } catch (err) {
+        // Revert on failure
+        setJobs(prev => prev.map(j => j.id === jobId ? job : j));
+        throw err;
+      }
+    }
+  }, [jobs, syncJobToSheets]);
 
   const startJob = useCallback(async (jobId: string | number) => {
     // Prevent starting a second job while one is already in progress
@@ -569,6 +630,7 @@ export function AppProvider({ children }) {
           beforeState: job ? { status: job.status } : null,
           afterState: { status: 'in_progress', startedAt: now },
         }).catch(() => {});
+        if (job) syncJobToSheets(job, { status: STATUS.IN_PROGRESS as Job['status'], startedAt: now });
       } catch (err) {
         setJobs(prev => prev.map(j =>
           j.id === jobId ? { ...j, status: STATUS.ASSIGNED, startedAt: null } : j
@@ -611,6 +673,8 @@ export function AppProvider({ children }) {
           jobId: jobId as string, userId: auth?.appUser?.id,
           afterState: { status: 'in_progress', mechanicId: pickingMechanicId, startedAt: now },
         }).catch(() => {});
+        const pickedJob = jobs.find(j => j.id === jobId);
+        if (pickedJob) syncJobToSheets(pickedJob, { status: STATUS.IN_PROGRESS as Job['status'], mechanicId: pickingMechanicId ?? undefined, startedAt: now });
       } catch (err) {
         // Rollback
         setJobs(prev => prev.map(j =>
@@ -627,12 +691,11 @@ export function AppProvider({ children }) {
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
 
-    const needsQC = ['repair', 'makeover'].includes(job.serviceType);
     const completedAt = new Date().toISOString();
     const actualMin = job.startedAt ? Math.round((new Date(completedAt).getTime() - new Date(job.startedAt).getTime()) / 60000) : null;
     const st = SERVICE_TYPES[job.serviceType] || SERVICE_TYPES.regular;
     const totalParts = partsUsed.reduce((s, p) => s + (p.price * (p.qty || 1)), 0);
-    const newStatus = needsQC ? STATUS.QUALITY_CHECK : STATUS.READY;
+    const newStatus = STATUS.READY;
     const labor = job.laborCharge ?? st.price;
     const totalCost = totalParts + labor;
 
@@ -649,6 +712,7 @@ export function AppProvider({ children }) {
       try {
         await jobService.updateJobStatus(jobId as string, newStatus, { completedAt, actualMin, partsUsed, totalCost });
         activityLogService.log('job_completed', { jobId: jobId as string, userId: auth?.appUser?.id }).catch(() => {});
+        syncJobToSheets(job, { status: newStatus as Job['status'], completedAt, actualMin, partsUsed, totalCost });
       } catch (err) {
         setJobs(prev => prev.map(j =>
           j.id === jobId ? { ...j, status: STATUS.IN_PROGRESS, completedAt: null, actualMin: null, totalCost: null } : j
@@ -674,6 +738,7 @@ export function AppProvider({ children }) {
       try {
         await jobService.updateJobStatus(jobId as string, 'ready', { qcStatus: 'passed' });
         activityLogService.log('qc_passed', { jobId: jobId as string, userId: auth?.appUser?.id }).catch(() => {});
+        { const qcJob = jobs.find(j => j.id === jobId); if (qcJob) syncJobToSheets(qcJob, { status: STATUS.READY as Job['status'], qcStatus: 'passed' }); }
         // WhatsApp "ready" notification is handled in QualityCheck.tsx via wa.me links
       } catch {
         setJobs(prev => prev.map(j =>
@@ -860,6 +925,7 @@ export function AppProvider({ children }) {
         const paidJob = jobs.find(j => j.id === jobId);
         if (paidJob) {
           zohoService.createInvoice(paidJob).catch(() => {});
+          syncJobToSheets(paidJob, { status: STATUS.COMPLETED as Job['status'], paymentMethod: method as Job['paymentMethod'], paidAt });
         }
       } catch {
         setJobs(prev => prev.map(j =>
@@ -912,7 +978,7 @@ export function AppProvider({ children }) {
     serviceList, partsList, serviceItems, partsItems,
     toast, showToast,
     isOffline, isDataLoading,
-    createJob, pickJob, startJob, completeJob,
+    createJob, editJob, pickJob, startJob, completeJob,
     qcPassJob, qcFailJob,
     markPartsNeeded, markPartsReceived,
     pauseJob, resumeJob,

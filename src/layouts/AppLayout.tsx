@@ -20,7 +20,6 @@ const ADMIN_NAV = [
   { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/admin/assign',    icon: UserCheck,       label: 'Assign' },
   { path: '/admin/team',      icon: Users,           label: 'Team' },
-  { path: '/staff/qc',        icon: ShieldCheck,     label: 'QC' },
   { path: '/admin/services',  icon: Settings,        label: 'Services' },
   { path: '/admin/customers', icon: Phone,           label: 'Customers' },
 ];
@@ -29,10 +28,10 @@ const NAV_CONFIG: Record<string, typeof ADMIN_NAV> = {
   staff: [
     { path: '/staff/checkin',    icon: PlusCircle,     label: 'Check In' },
     { path: '/staff/queue',      icon: ClipboardList,  label: 'Queue' },
+    { path: '/staff/customers',  icon: Phone,          label: 'Customers' },
     { path: '/staff/pickup',     icon: Wallet,         label: 'Pickup' },
     { path: '/staff/parts',      icon: Wrench,         label: 'Parts' },
-    { path: '/staff/qc',         icon: ShieldCheck,    label: 'QC' },
-    { path: '/staff/customers',  icon: Phone,          label: 'Customers' },
+    { path: '/admin/services',   icon: Settings,       label: 'Services' },
   ],
   mechanic: [
     { path: '/mechanic/today',  icon: CalendarDays,  label: 'Today' },
@@ -53,7 +52,7 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const stats = getDashboardStats();
-  const notifCount = stats.qc + stats.partsPending;
+  const notifCount = stats.partsPending;
   const [notifBannerDismissed, setNotifBannerDismissed] = useState(false);
   const [dutyToggling, setDutyToggling] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<any>(null);

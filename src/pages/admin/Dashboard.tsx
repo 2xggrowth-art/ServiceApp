@@ -26,10 +26,10 @@ export default function Dashboard() {
     [stats.jobs]
   );
 
-  // Live timer tick — updates every second for active job timers
+  // Live timer tick — updates every 5s for active job timers (reduces re-renders)
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000);
+    const interval = setInterval(() => setNow(Date.now()), 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -66,7 +66,7 @@ export default function Dashboard() {
       </div>
 
       {/* Alerts Section */}
-      {(stats.unassigned > 0 || stats.qc > 0 || stats.partsPending > 0 || stats.ready > 0) && (
+      {(stats.unassigned > 0 || stats.partsPending > 0 || stats.ready > 0) && (
         <div className="space-y-2">
           <h3 className="text-[13px] font-semibold text-grey-muted uppercase tracking-widest mt-6 mb-3">Alerts</h3>
 
@@ -78,18 +78,6 @@ export default function Dashboard() {
               <div className="flex-1">
                 <div className="text-[15px] font-bold leading-snug">{stats.unassigned} bike(s) unassigned</div>
                 <div className="text-[11px] text-grey-muted mt-0.5">Assign to a mechanic</div>
-              </div>
-            </Card>
-          )}
-
-          {stats.qc > 0 && (
-            <Card bordered borderColor="border-purple-qc" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 bg-purple-light rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
-                <AlertTriangle size={18} className="text-purple-700" />
-              </div>
-              <div className="flex-1">
-                <div className="text-[15px] font-bold leading-snug">{stats.qc} job(s) need QC check</div>
-                <div className="text-[11px] text-grey-muted mt-0.5">Review before delivery</div>
               </div>
             </Card>
           )}

@@ -4,9 +4,10 @@ import { STATUS } from '../../lib/constants';
 import { StatusBadge } from '../../components/ui/Badge';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { Users, ChevronDown } from 'lucide-react';
+import { Users, ChevronDown, Clock } from 'lucide-react';
 import { openWhatsApp } from '../../lib/whatsapp';
 import type { WhatsAppStage } from '../../lib/whatsapp';
+import type { Job } from '../../types';
 
 const TIMELINE_STEPS = [
   { key: 'received', label: 'Received' },
@@ -43,6 +44,22 @@ function getWhatsAppStage(status: string): WhatsAppStage | null {
   }
 }
 
+/** Format ISO date to readable "18 Feb, 11:30 AM" */
+function formatTimestamp(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+/** Format just the date "18 Feb 2026" */
+function formatDate(dateStr?: string): string | null {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export default function Customers() {
   const { getDashboardStats, showToast } = useApp();
   const stats = getDashboardStats();
@@ -52,9 +69,14 @@ export default function Customers() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     received: false, working: false, ready: false,
   });
+  const [expandedJobId, setExpandedJobId] = useState<string | number | null>(null);
 
   const toggleSection = (key: string) => {
     setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const toggleExpand = (jobId: string | number) => {
+    setExpandedJobId(prev => prev === jobId ? null : jobId);
   };
 
   const handleWhatsApp = (job: typeof jobs[0]) => {
@@ -118,58 +140,76 @@ export default function Customers() {
                 {sectionJobs.map((job) => {
                   const currentIdx = STATUS_TO_STEP[job.status] ?? 0;
                   const waStage = getWhatsAppStage(job.status);
+                  const isExpanded = expandedJobId === job.id;
 
                   return (
-                    <Card key={job.id} className="animate-fade-in-up">
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <div className="text-[15px] font-bold leading-snug">{job.customerName}</div>
-                          <div className="text-[13px] text-grey-muted mt-0.5">{job.customerPhone || 'No phone'} · {job.bike}</div>
+                    <div key={job.id}>
+                      <Card className="animate-fade-in-up cursor-pointer" onClick={() => toggleExpand(job.id)}>
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-1">
+                          <div>
+                            <div className="text-[15px] font-bold leading-snug">{job.customerName}</div>
+                            <div className="text-[13px] text-grey-muted mt-0.5">{job.customerPhone || 'No phone'} · {job.bike}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={job.status} />
+                            <ChevronDown size={14} className={`text-grey-muted transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                          </div>
                         </div>
-                        <StatusBadge status={job.status} />
-                      </div>
 
-                      {/* Timeline */}
-                      <div className="flex items-center gap-0 my-3 px-1">
-                        {TIMELINE_STEPS.map((step, i) => {
-                          const isDone = i < currentIdx;
-                          const isCurrent = i === currentIdx;
-                          return (
-                            <div key={step.key} className="flex items-center flex-1 last:flex-none">
-                              <div className="flex flex-col items-center">
-                                <div className={`w-4 h-4 rounded-full border-2 transition-all duration-300
-                                  ${isDone ? 'bg-green-success border-green-success scale-90' :
-                                    isCurrent ? 'bg-blue-primary border-blue-primary ring-4 ring-blue-primary/20' :
-                                    'bg-white border-grey-border'}`}
-                                />
-                                <span className={`text-[9px] mt-1.5 font-semibold
-                                  ${isDone ? 'text-green-success' : isCurrent ? 'text-blue-primary' : 'text-grey-light'}`}>
-                                  {step.label}
-                                </span>
+                        {/* Date */}
+                        <div className="text-[11px] text-grey-muted mb-2">
+                          {formatDate(job.date)}
+                        </div>
+
+                        {/* Timeline */}
+                        <div className="flex items-center gap-0 my-2 px-1">
+                          {TIMELINE_STEPS.map((step, i) => {
+                            const isDone = i < currentIdx;
+                            const isCurrent = i === currentIdx;
+                            return (
+                              <div key={step.key} className="flex items-center flex-1 last:flex-none">
+                                <div className="flex flex-col items-center">
+                                  <div className={`w-4 h-4 rounded-full border-2 transition-all duration-300
+                                    ${isDone ? 'bg-green-success border-green-success scale-90' :
+                                      isCurrent ? 'bg-blue-primary border-blue-primary ring-4 ring-blue-primary/20' :
+                                      'bg-white border-grey-border'}`}
+                                  />
+                                  <span className={`text-[9px] mt-1.5 font-semibold
+                                    ${isDone ? 'text-green-success' : isCurrent ? 'text-blue-primary' : 'text-grey-light'}`}>
+                                    {step.label}
+                                  </span>
+                                </div>
+                                {i < TIMELINE_STEPS.length - 1 && (
+                                  <div className={`flex-1 h-0.5 mx-1.5 rounded transition-colors duration-300
+                                    ${isDone ? 'bg-green-success' : 'bg-grey-border'}`} />
+                                )}
                               </div>
-                              {i < TIMELINE_STEPS.length - 1 && (
-                                <div className={`flex-1 h-0.5 mx-1.5 rounded transition-colors duration-300
-                                  ${isDone ? 'bg-green-success' : 'bg-grey-border'}`} />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
 
-                      {/* WhatsApp */}
-                      {waStage && job.customerPhone && (
-                        <div className="text-right mt-2">
-                          <Button
-                            size="sm"
-                            variant="success"
-                            onClick={() => handleWhatsApp(job)}
-                          >
-                            💬 WhatsApp
-                          </Button>
+                        {/* WhatsApp */}
+                        {waStage && job.customerPhone && (
+                          <div className="text-right mt-2" onClick={e => e.stopPropagation()}>
+                            <Button
+                              size="sm"
+                              variant="success"
+                              onClick={() => handleWhatsApp(job)}
+                            >
+                              💬 WhatsApp
+                            </Button>
+                          </div>
+                        )}
+                      </Card>
+
+                      {/* Expanded: Workflow timestamps */}
+                      {isExpanded && (
+                        <div className="bg-gray-50 border border-gray-200 border-t-0 rounded-b-xl -mt-1 px-4 py-3">
+                          <WorkflowTimeline job={job} />
                         </div>
                       )}
-                    </Card>
+                    </div>
                   );
                 })}
               </div>
@@ -177,6 +217,63 @@ export default function Customers() {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Workflow timeline showing all timestamps */
+function WorkflowTimeline({ job }: { job: Job }) {
+  const steps = [
+    { label: 'Checked In', time: formatTimestamp(job.createdAt), done: true },
+    { label: 'Work Started', time: formatTimestamp(job.startedAt), done: !!job.startedAt },
+    { label: 'Completed', time: formatTimestamp(job.completedAt), done: !!job.completedAt },
+    { label: 'Payment', time: formatTimestamp(job.paidAt), done: !!job.paidAt },
+  ];
+
+  return (
+    <div className="space-y-0">
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <Clock size={12} className="text-grey-muted" />
+        <span className="text-[10px] font-bold text-grey-muted uppercase tracking-wide">Workflow Timeline</span>
+      </div>
+      {steps.map((step, i) => (
+        <div key={step.label} className="flex items-start gap-3">
+          {/* Vertical line + dot */}
+          <div className="flex flex-col items-center">
+            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${step.done ? 'bg-green-success' : 'bg-gray-300'}`} />
+            {i < steps.length - 1 && (
+              <div className={`w-0.5 h-5 ${step.done ? 'bg-green-success/40' : 'bg-gray-200'}`} />
+            )}
+          </div>
+          {/* Label + time */}
+          <div className="flex-1 -mt-0.5 pb-1">
+            <div className="flex items-center justify-between">
+              <span className={`text-xs font-medium ${step.done ? 'text-black' : 'text-grey-muted'}`}>{step.label}</span>
+              {step.time ? (
+                <span className="text-[11px] text-grey-muted">{step.time}</span>
+              ) : (
+                <span className="text-[11px] text-grey-light">—</span>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Service & issue info */}
+      {(job.services?.length > 0 || job.issue) && (
+        <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
+          {job.services?.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {job.services.map((svc, i) => (
+                <span key={i} className="text-[10px] font-bold bg-blue-primary/10 text-blue-primary px-2 py-0.5 rounded">{svc}</span>
+              ))}
+            </div>
+          )}
+          {job.issue && (
+            <p className="text-[11px] text-grey-muted leading-relaxed">{job.issue}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

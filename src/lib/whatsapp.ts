@@ -5,7 +5,7 @@
 
 export type WhatsAppStage = 'received' | 'in_progress' | 'quality_check' | 'ready';
 
-const FOOTER = `\n\nFor all service related queries, call us on this number.\n— Bharath Cycle Hub`;
+const FOOTER = `\n\nFor all service related queries, call us at 9844223174.\n— Bharath Cycle Hub`;
 
 const TEMPLATES: Record<WhatsAppStage, (name: string, bike: string, quote?: string) => string> = {
   received: (name, bike, quote) =>

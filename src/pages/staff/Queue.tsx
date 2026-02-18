@@ -3,7 +3,8 @@ import { useApp } from '../../context/AppContext';
 import { STATUS } from '../../lib/constants';
 import { formatCurrency } from '../../lib/helpers';
 import JobCard from '../../components/ui/JobCard';
-import { Image, Volume2, Package, ChevronDown } from 'lucide-react';
+import { Image, Volume2, Package, ChevronDown, Pencil, X } from 'lucide-react';
+import type { Job } from '../../types';
 
 /** Parse photoBefore field: could be JSON array of URLs or single URL */
 function parsePhotoUrls(val?: string): string[] {
@@ -15,13 +16,14 @@ function parsePhotoUrls(val?: string): string[] {
 }
 
 export default function Queue() {
-  const { getDashboardStats, mechanics, isDataLoading, partsItems } = useApp();
+  const { getDashboardStats, mechanics, isDataLoading, partsItems, editJob, showToast, serviceList, serviceItems } = useApp();
   const stats = getDashboardStats();
   const jobs = stats.jobs;
   const mechMap = Object.fromEntries(mechanics.map(m => [m.id, m]));
 
   const [filter, setFilter] = useState<string>('unassigned');
   const [expandedId, setExpandedId] = useState<string | number | null>(null);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
 
   if (isDataLoading) {
     return (
@@ -46,7 +48,13 @@ export default function Queue() {
   else if (filter === 'ready') filtered = jobs.filter(j => j.status === STATUS.READY);
 
   const statusOrder = [STATUS.PARTS_PENDING, STATUS.IN_PROGRESS, STATUS.ASSIGNED, STATUS.RECEIVED, STATUS.QUALITY_CHECK, STATUS.READY, STATUS.COMPLETED];
-  filtered = [...filtered].sort((a, b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status));
+  filtered = [...filtered].sort((a, b) => {
+    // Urgent jobs always come first
+    if (a.priority === 'urgent' && b.priority !== 'urgent') return -1;
+    if (b.priority === 'urgent' && a.priority !== 'urgent') return 1;
+    // Then sort by status
+    return statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
+  });
 
   const filters = [
     { id: 'unassigned', label: 'Unassigned', color: 'bg-grey-muted' },
@@ -109,6 +117,16 @@ export default function Queue() {
                 {/* Expanded Detail Panel */}
                 {isExpanded && (
                   <div className="bg-gray-50 border-2 border-gray-100 border-t-0 rounded-b-2xl -mt-2 pt-4 px-4 pb-4 space-y-3">
+                    {/* Edit button — only for unassigned (received) jobs */}
+                    {job.status === STATUS.RECEIVED && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingJob(job); }}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-blue-primary text-white text-xs font-bold cursor-pointer active:scale-[0.98] transition-all"
+                      >
+                        <Pencil size={14} /> Edit Job Details
+                      </button>
+                    )}
+
                     {/* Photos */}
                     {photos.length > 0 && (
                       <div>
@@ -187,6 +205,175 @@ export default function Queue() {
           })}
         </div>
       )}
+
+      {/* Edit Job Modal */}
+      {editingJob && (
+        <EditJobModal
+          job={editingJob}
+          serviceList={serviceList}
+          serviceItems={serviceItems}
+          onSave={async (updates) => {
+            try {
+              await editJob(editingJob.id, updates);
+              showToast('Job updated', 'success');
+              setEditingJob(null);
+            } catch (err) {
+              showToast(err instanceof Error ? err.message : 'Failed to update', 'error');
+            }
+          }}
+          onClose={() => setEditingJob(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// --- Edit Job Modal ---
+
+interface EditJobModalProps {
+  job: Job;
+  serviceList: string[];
+  serviceItems: { name: string; price: number }[];
+  onSave: (updates: Record<string, unknown>) => Promise<void>;
+  onClose: () => void;
+}
+
+function EditJobModal({ job, serviceList, serviceItems, onSave, onClose }: EditJobModalProps) {
+  const [customerName, setCustomerName] = useState(job.customerName);
+  const [customerPhone, setCustomerPhone] = useState(job.customerPhone || '');
+  const [bike, setBike] = useState(job.bike);
+  const [issue, setIssue] = useState(job.issue || '');
+  const [priority, setPriority] = useState(job.priority);
+  const [selectedService, setSelectedService] = useState<string | null>(job.services?.[0] || null);
+  const [totalCharge, setTotalCharge] = useState(job.laborCharge ? String(job.laborCharge) : '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!customerName.trim()) return;
+    if (!bike.trim()) return;
+    setSaving(true);
+    try {
+      await onSave({
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim() || undefined,
+        bike: bike.trim(),
+        issue: issue.trim() || undefined,
+        priority,
+        services: selectedService ? [selectedService] : [],
+        laborCharge: totalCharge ? Number(totalCharge) : undefined,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div
+        className="relative bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl max-h-[85vh] overflow-y-auto animate-slide-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-grey-border/50 px-5 py-4 flex items-center justify-between rounded-t-3xl z-10">
+          <h3 className="text-base font-extrabold">Edit Job</h3>
+          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-grey-bg cursor-pointer transition-colors">
+            <X size={18} className="text-grey-muted" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {/* Customer Name */}
+          <div>
+            <label className="text-[11px] font-semibold text-grey-muted uppercase tracking-wider block mb-1.5">Customer Name</label>
+            <input value={customerName} onChange={e => setCustomerName(e.target.value)}
+              className="form-input" placeholder="Customer name" />
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label className="text-[11px] font-semibold text-grey-muted uppercase tracking-wider block mb-1.5">Phone</label>
+            <input type="tel" value={customerPhone} maxLength={10} inputMode="numeric"
+              onChange={e => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              className="form-input" placeholder="10-digit mobile" />
+          </div>
+
+          {/* Bike */}
+          <div>
+            <label className="text-[11px] font-semibold text-grey-muted uppercase tracking-wider block mb-1.5">Bike Model</label>
+            <input value={bike} onChange={e => setBike(e.target.value)}
+              className="form-input" placeholder="e.g. Hero Splendor Plus" />
+          </div>
+
+          {/* Service Type */}
+          {serviceList.length > 0 && (
+            <div>
+              <label className="text-[11px] font-semibold text-grey-muted uppercase tracking-wider block mb-1.5">Service</label>
+              <div className="grid grid-cols-2 gap-2">
+                {serviceList.map(svc => {
+                  const price = serviceItems?.find(i => i.name === svc)?.price || 0;
+                  const isActive = selectedService === svc;
+                  return (
+                    <button key={svc} type="button"
+                      onClick={() => setSelectedService(isActive ? null : svc)}
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-xl border-2 transition-all duration-200 cursor-pointer
+                        ${isActive
+                          ? 'border-blue-primary bg-blue-light'
+                          : 'border-grey-border bg-white hover:bg-grey-bg active:scale-[0.98]'}`}>
+                      <span className={`text-xs font-bold ${isActive ? 'text-blue-primary' : 'text-grey-text'}`}>{svc}</span>
+                      {price > 0 && (
+                        <span className={`text-[10px] font-semibold ${isActive ? 'text-blue-primary/70' : 'text-grey-light'}`}>₹{price}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Total Charge */}
+          <div>
+            <label className="text-[11px] font-semibold text-grey-muted uppercase tracking-wider block mb-1.5">Total Charge (₹)</label>
+            <input type="number" inputMode="numeric" value={totalCharge}
+              onChange={e => setTotalCharge(e.target.value)}
+              className="form-input" placeholder="Amount" />
+          </div>
+
+          {/* Issue */}
+          <div>
+            <label className="text-[11px] font-semibold text-grey-muted uppercase tracking-wider block mb-1.5">Issue / Notes</label>
+            <textarea value={issue} onChange={e => setIssue(e.target.value)}
+              rows={2} className="form-input resize-none" placeholder="Describe the issue..." />
+          </div>
+
+          {/* Priority */}
+          <div>
+            <label className="text-[11px] font-semibold text-grey-muted uppercase tracking-wider block mb-1.5">Priority</label>
+            <div className="flex gap-2.5">
+              <button onClick={() => setPriority('standard')}
+                className={`flex-1 py-2.5 rounded-xl border-2 text-xs font-bold transition-all cursor-pointer
+                  ${priority === 'standard'
+                    ? 'border-blue-primary bg-blue-light text-blue-primary'
+                    : 'border-grey-border text-grey-muted hover:bg-grey-bg'}`}>
+                Standard
+              </button>
+              <button onClick={() => setPriority('urgent')}
+                className={`flex-1 py-2.5 rounded-xl border-2 text-xs font-bold transition-all cursor-pointer
+                  ${priority === 'urgent'
+                    ? 'border-red-urgent bg-red-light text-red-urgent'
+                    : 'border-grey-border text-grey-muted hover:bg-grey-bg'}`}>
+                Urgent
+              </button>
+            </div>
+          </div>
+
+          {/* Save */}
+          <button onClick={handleSave} disabled={saving || !customerName.trim() || !bike.trim()}
+            className="w-full py-3.5 rounded-2xl bg-blue-primary text-white font-extrabold text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] transition-all">
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

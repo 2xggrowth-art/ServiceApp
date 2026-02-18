@@ -68,8 +68,8 @@ function AppRoutes() {
           <Route path="/staff/queue" element={<Queue />} />
           <Route path="/staff/pickup" element={<Pickup />} />
           <Route path="/staff/parts" element={<StaffParts />} />
-          <Route path="/staff/qc" element={<QualityCheck />} />
           <Route path="/staff/customers" element={<Customers />} />
+          <Route path="/admin/services" element={<ServiceOptions />} />
         </Route>
 
         {/* Admin routes — owner and admin only */}
@@ -79,7 +79,6 @@ function AppRoutes() {
           <Route path="/admin/team" element={<Team />} />
           <Route path="/admin/customers" element={<Customers />} />
           <Route path="/admin/audit" element={<AuditLog />} />
-          <Route path="/admin/services" element={<ServiceOptions />} />
         </Route>
 
         {/* Mechanic routes — mechanics only */}

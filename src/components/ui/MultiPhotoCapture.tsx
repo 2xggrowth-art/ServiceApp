@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Camera, Upload, X, Plus } from 'lucide-react';
+import { Camera, Upload, X, Plus, Video } from 'lucide-react';
 
 interface MultiPhotoCaptureProps {
   maxPhotos?: number;
@@ -19,9 +19,12 @@ export default function MultiPhotoCapture({
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [showOptions, setShowOptions] = useState(false);
+  const [warning, setWarning] = useState('');
 
   const totalPhotos = existingUrls.length + files.length;
   const canAdd = totalPhotos < maxPhotos;
+
+  const isVideoFile = (file: File) => file.type.startsWith('video/');
 
   const handleFile = (file: File) => {
     if (!canAdd) return;
@@ -32,11 +35,19 @@ export default function MultiPhotoCapture({
     setPreviews(newPreviews);
     onPhotosChange(newFiles);
     setShowOptions(false);
+    setWarning('');
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
     if (!fileList) return;
+    const remaining = maxPhotos - existingUrls.length - files.length;
+    // Show warning if user selected more than allowed
+    if (fileList.length > remaining) {
+      setWarning(`Only ${remaining} more file${remaining !== 1 ? 's' : ''} allowed (max ${maxPhotos}). ${fileList.length - remaining} file${fileList.length - remaining !== 1 ? 's' : ''} skipped.`);
+    } else {
+      setWarning('');
+    }
     // Support multi-select from gallery
     for (let i = 0; i < fileList.length && (existingUrls.length + files.length + i) < maxPhotos; i++) {
       const file = fileList[i];
@@ -83,10 +94,19 @@ export default function MultiPhotoCapture({
             </div>
           ))}
 
-          {/* New photos (local previews) */}
+          {/* New photos/videos (local previews) */}
           {previews.map((url, i) => (
             <div key={`new-${i}`} className="relative aspect-square rounded-2xl overflow-hidden ring-2 ring-blue-primary/25">
-              <img src={url} alt={`New photo ${i + 1}`} className="w-full h-full object-cover" />
+              {files[i] && isVideoFile(files[i]) ? (
+                <>
+                  <video src={url} className="w-full h-full object-cover" muted />
+                  <div className="absolute bottom-1.5 left-1.5 bg-blue-primary/80 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full backdrop-blur-sm flex items-center gap-0.5">
+                    <Video size={8} /> Video
+                  </div>
+                </>
+              ) : (
+                <img src={url} alt={`New photo ${i + 1}`} className="w-full h-full object-cover" />
+              )}
               <button
                 type="button"
                 onClick={() => removeFile(i)}
@@ -126,10 +146,17 @@ export default function MultiPhotoCapture({
               <Camera size={22} className="text-grey-muted" />
             </div>
             <div className="text-center">
-              <span className="text-[13px] text-grey-text font-semibold block">Add Photos</span>
-              <span className="text-[10px] text-grey-light">Up to {maxPhotos} photos</span>
+              <span className="text-[13px] text-grey-text font-semibold block">Add Photos / Videos</span>
+              <span className="text-[10px] text-grey-light">Up to {maxPhotos} files</span>
             </div>
           </button>
+        )}
+
+        {/* Warning when user tries to select more than limit */}
+        {warning && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 rounded-xl">
+            <span className="text-[12px] text-orange-600 font-semibold">{warning}</span>
+          </div>
         )}
       </div>
 
@@ -137,7 +164,7 @@ export default function MultiPhotoCapture({
       <input
         ref={cameraRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         capture="environment"
         onChange={handleChange}
         className="hidden"
@@ -145,7 +172,7 @@ export default function MultiPhotoCapture({
       <input
         ref={uploadRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         multiple
         onChange={handleChange}
         className="hidden"
@@ -162,7 +189,7 @@ export default function MultiPhotoCapture({
           >
             <div className="w-10 h-1 bg-grey-border rounded-full mx-auto mb-5" />
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-extrabold">Add Photo</h3>
+              <h3 className="text-base font-extrabold">Add Photo / Video</h3>
               <button
                 onClick={() => setShowOptions(false)}
                 className="w-8 h-8 flex items-center justify-center rounded-xl bg-grey-bg text-grey-muted hover:bg-grey-border transition-colors cursor-pointer"
