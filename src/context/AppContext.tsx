@@ -458,6 +458,16 @@ export function AppProvider({ children }) {
       case 'resumeJob':
         await jobService.updateJobStatus(args[0] as string, 'in_progress', args[1] as Record<string, unknown>);
         break;
+      case 'reassignJob': {
+        const rJobId = args[0] as string;
+        const rMechId = args[1] as string;
+        const rWasInProgress = args[2] as boolean;
+        await jobService.assignJob(rJobId, rMechId);
+        if (rWasInProgress) {
+          await jobService.updateJobStatus(rJobId, 'assigned', { startedAt: null });
+        }
+        break;
+      }
       case 'processPayment':
         await jobService.processPayment(args[0] as string, args[1] as string);
         break;
@@ -802,7 +812,8 @@ export function AppProvider({ children }) {
 
     if (config.useSupabase) {
       if (!navigator.onLine) {
-        showToast('Reassigned locally — will sync when connected', 'info');
+        await offlineQueue.enqueue('reassignJob', [jobId, newMechanicId, wasInProgress]);
+        showToast('Reassigned offline — will sync when connected', 'info');
         return;
       }
       try {
