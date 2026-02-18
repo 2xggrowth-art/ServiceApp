@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { serviceOptionsService } from '../../services/serviceOptionsService';
-import type { ServiceOption } from '../../services/serviceOptionsService';
+import type { ServiceOption, PartCategory } from '../../services/serviceOptionsService';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { ChevronUp, ChevronDown, Pencil, Trash2, Plus, Check, X, Search } from 'lucide-react';
@@ -13,6 +13,9 @@ export default function ServiceOptions() {
   const [tab, setTab] = useState<Tab>('service');
   const [items, setItems] = useState<ServiceOption[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Parts category filter
+  const [partCategory, setPartCategory] = useState<PartCategory>('electric');
 
   // Add form
   const [newName, setNewName] = useState('');
@@ -45,6 +48,7 @@ export default function ServiceOptions() {
 
   const filtered = items
     .filter(i => i.type === tab)
+    .filter(i => tab === 'service' || i.category === partCategory)
     .filter(i => !search.trim() || i.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -55,7 +59,8 @@ export default function ServiceOptions() {
 
     setAdding(true);
     try {
-      await serviceOptionsService.create(tab, name, Number(newPrice) || 0);
+      const category = tab === 'part' ? partCategory : undefined;
+      await serviceOptionsService.create(tab, name, Number(newPrice) || 0, category);
       setNewName('');
       setNewPrice('');
       await loadItems();
@@ -87,7 +92,9 @@ export default function ServiceOptions() {
     if (!name) { showToast('Name cannot be empty', 'error'); return; }
 
     try {
-      await serviceOptionsService.update(editingId, name, Number(editPrice) || 0);
+      const editingItem = items.find(i => i.id === editingId);
+      const category = editingItem?.type === 'part' ? editingItem.category : undefined;
+      await serviceOptionsService.update(editingId, name, Number(editPrice) || 0, category);
       setEditingId(null);
       setEditName('');
       setEditPrice('');
@@ -172,6 +179,30 @@ export default function ServiceOptions() {
         </button>
       </div>
 
+      {/* Electric / Non-Electric sub-tabs (only for Parts) */}
+      {tab === 'part' && (
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setPartCategory('electric'); setSearch(''); }}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl border-2 transition-all duration-200 cursor-pointer
+              ${partCategory === 'electric'
+                ? 'border-blue-primary bg-blue-primary/10 text-blue-primary'
+                : 'border-grey-border text-grey-muted hover:text-grey-text hover:bg-grey-bg'}`}
+          >
+            Electric
+          </button>
+          <button
+            onClick={() => { setPartCategory('non_electric'); setSearch(''); }}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl border-2 transition-all duration-200 cursor-pointer
+              ${partCategory === 'non_electric'
+                ? 'border-orange-action bg-orange-action/10 text-orange-action'
+                : 'border-grey-border text-grey-muted hover:text-grey-text hover:bg-grey-bg'}`}
+          >
+            Non-Electric
+          </button>
+        </div>
+      )}
+
       {/* Search */}
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-grey-muted" />
@@ -192,7 +223,9 @@ export default function ServiceOptions() {
       {/* Items List — Grouped */}
       {filtered.length === 0 ? (
         <Card className="text-center py-8">
-          <p className="text-[13px] text-grey-muted">No {tab === 'service' ? 'services' : 'parts'} added yet</p>
+          <p className="text-[13px] text-grey-muted">
+            No {tab === 'service' ? 'services' : `${partCategory === 'electric' ? 'electric' : 'non-electric'} parts`} added yet
+          </p>
         </Card>
       ) : (
         <Card className="divide-y divide-grey-border/50 overflow-hidden !p-0">
@@ -278,7 +311,7 @@ export default function ServiceOptions() {
           <input
             value={newName}
             onChange={e => setNewName(e.target.value)}
-            placeholder={`Add new ${tab === 'service' ? 'service' : 'part'}...`}
+            placeholder={`Add new ${tab === 'service' ? 'service' : (partCategory === 'electric' ? 'electric' : 'non-electric') + ' part'}...`}
             className="flex-1 min-w-0 border border-grey-border rounded-xl px-3 py-2.5 text-sm"
             onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
           />

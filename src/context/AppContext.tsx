@@ -20,11 +20,12 @@ import { activityLogService } from '../services/activityLogService';
 import { zohoService } from '../services/zohoService';
 import { googleSheetsService, buildSheetPayload } from '../services/googleSheetsService';
 import type { Job, Mechanic, Part } from '../types';
-import type { ServiceOption } from '../services/serviceOptionsService';
+import type { ServiceOption, PartCategory } from '../services/serviceOptionsService';
 
 export interface ServiceOptionItem {
   name: string;
   price: number;
+  category?: PartCategory | null;
 }
 
 interface AppContextValue {
@@ -198,7 +199,7 @@ export function AppProvider({ children }) {
           setServiceList(svcOpts.map(o => o.name));
           setPartsList(prtOpts.map(o => o.name));
           setServiceItems(svcOpts.map(o => ({ name: o.name, price: o.price })));
-          setPartsItems(prtOpts.map(o => ({ name: o.name, price: o.price })));
+          setPartsItems(prtOpts.map(o => ({ name: o.name, price: o.price, category: o.category })));
         }
 
         // Cache to IndexedDB for offline use (fire-and-forget)
@@ -994,7 +995,7 @@ export function AppProvider({ children }) {
         setServiceList(svcOpts.map(o => o.name));
         setPartsList(prtOpts.map(o => o.name));
         setServiceItems(svcOpts.map(o => ({ name: o.name, price: o.price })));
-        setPartsItems(prtOpts.map(o => ({ name: o.name, price: o.price })));
+        setPartsItems(prtOpts.map(o => ({ name: o.name, price: o.price, category: o.category })));
       } catch { /* silent */ }
     },
   };

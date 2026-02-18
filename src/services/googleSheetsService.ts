@@ -76,50 +76,49 @@ export function buildSheetPayload(job: Job, mechanics: Mechanic[]): SheetJobPayl
   };
 }
 
+/**
+ * Send data to Apps Script via GET with ?data= query param.
+ * This avoids the POST→GET redirect issue that breaks doPost in browsers.
+ */
+async function sendToSheets(payload: unknown): Promise<void> {
+  const url = `${SHEETS_URL}?data=${encodeURIComponent(JSON.stringify(payload))}`;
+  await fetch(url, { redirect: 'follow' });
+}
+
 export const googleSheetsService = {
   get isEnabled() {
     return ENABLED;
   },
 
   /**
-   * Sync a single completed job to the appropriate monthly tab.
-   * Uses no-cors to avoid CORS preflight issues with Apps Script.
-   * Only hard network errors (offline, DNS) will throw.
+   * Sync a single job to the appropriate monthly tab.
    */
   async syncJob(payload: SheetJobPayload): Promise<void> {
     if (!ENABLED) return;
 
-    await fetch(SHEETS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload),
-    });
+    try {
+      await sendToSheets(payload);
+    } catch {
+      console.warn('Google Sheets sync failed for job', payload.id);
+    }
   },
 
   /**
    * Batch sync multiple jobs (for manual re-sync).
-   * Sends in chunks of 50 to stay within Apps Script limits.
+   * Sends individually to stay within URL length limits.
    */
   async batchSync(payloads: SheetJobPayload[]): Promise<{ synced: number; failed: number }> {
     if (!ENABLED || payloads.length === 0) return { synced: 0, failed: 0 };
 
-    const CHUNK_SIZE = 50;
     let synced = 0;
     let failed = 0;
 
-    for (let i = 0; i < payloads.length; i += CHUNK_SIZE) {
-      const chunk = payloads.slice(i, i + CHUNK_SIZE);
+    for (const payload of payloads) {
       try {
-        await fetch(SHEETS_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify(chunk),
-        });
-        synced += chunk.length;
+        await sendToSheets(payload);
+        synced++;
       } catch {
-        failed += chunk.length;
+        failed++;
       }
     }
     return { synced, failed };

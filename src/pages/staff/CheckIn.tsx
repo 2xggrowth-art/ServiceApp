@@ -13,6 +13,8 @@ import VoiceInput from '../../components/ui/VoiceInput';
 import { ChevronDown, X, Plus, Minus, Trash2 } from 'lucide-react';
 import { openWhatsApp } from '../../lib/whatsapp';
 
+import type { PartCategory } from '../../services/serviceOptionsService';
+
 interface PartLine {
   name: string;
   qty: number;
@@ -337,7 +339,7 @@ export default function CheckIn() {
         )}
       </div>
 
-      {/* Parts — dropdown with search */}
+      {/* Parts — dropdown with category tabs + search */}
       <div>
         <label className="text-[11px] font-semibold text-grey-muted uppercase tracking-wider block mb-2">Parts</label>
         <PartsDropdown
@@ -462,6 +464,7 @@ export default function CheckIn() {
 interface OptionItem {
   name: string;
   price: number;
+  category?: PartCategory | null;
 }
 
 interface PartsDropdownProps {
@@ -477,13 +480,17 @@ interface PartsDropdownProps {
 const PartsDropdown = forwardRef<HTMLDivElement, PartsDropdownProps>(
   ({ isOpen, onToggle, options, optionItems, partLines, onAddPart, placeholder }, ref) => {
     const [search, setSearch] = useState('');
+    const [category, setCategory] = useState<PartCategory>('electric');
     const searchRef = useRef<HTMLInputElement>(null);
     const getPrice = (opt: string) => optionItems?.find(i => i.name === opt)?.price || 0;
+    const getCategory = (opt: string) => optionItems?.find(i => i.name === opt)?.category || null;
     const getQty = (opt: string) => partLines.find(p => p.name === opt)?.qty || 0;
 
+    // Filter by category, then by search
+    const categoryFiltered = options.filter(opt => getCategory(opt) === category);
     const filtered = search.trim()
-      ? options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()))
-      : options;
+      ? categoryFiltered.filter(opt => opt.toLowerCase().includes(search.toLowerCase()))
+      : categoryFiltered;
 
     useEffect(() => {
       if (!isOpen) setSearch('');
@@ -505,8 +512,31 @@ const PartsDropdown = forwardRef<HTMLDivElement, PartsDropdownProps>(
         </button>
 
         {isOpen && (
-          <div className="absolute z-50 mt-1 w-full bg-white border border-grey-border rounded-xl shadow-lg max-h-64 flex flex-col">
-            <div className="sticky top-0 bg-white border-b border-grey-border p-2">
+          <div className="absolute z-50 mt-1 w-full bg-white border border-grey-border rounded-xl shadow-lg max-h-80 flex flex-col">
+            {/* Category tabs */}
+            <div className="sticky top-0 bg-white border-b border-grey-border p-2 space-y-2">
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setCategory('electric')}
+                  className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer
+                    ${category === 'electric'
+                      ? 'bg-blue-primary text-white'
+                      : 'bg-grey-bg text-grey-muted hover:text-grey-text'}`}
+                >
+                  Electric
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCategory('non_electric')}
+                  className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer
+                    ${category === 'non_electric'
+                      ? 'bg-orange-action text-white'
+                      : 'bg-grey-bg text-grey-muted hover:text-grey-text'}`}
+                >
+                  Non-Electric
+                </button>
+              </div>
               <input
                 ref={searchRef}
                 type="text"
@@ -519,7 +549,7 @@ const PartsDropdown = forwardRef<HTMLDivElement, PartsDropdownProps>(
             <div className="overflow-y-auto flex-1">
               {filtered.length === 0 ? (
                 <div className="px-3 py-4 text-sm text-grey-muted text-center">
-                  {options.length === 0 ? 'No parts available yet' : 'No matches found'}
+                  {categoryFiltered.length === 0 ? `No ${category === 'electric' ? 'electric' : 'non-electric'} parts yet` : 'No matches found'}
                 </div>
               ) : (
                 filtered.map(opt => {

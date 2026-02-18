@@ -2,12 +2,15 @@ import { supabase } from '../lib/supabase';
 import { config } from '../lib/config';
 import { getCallerId } from '../lib/authStore';
 
+export type PartCategory = 'electric' | 'non_electric';
+
 export interface ServiceOption {
   id: string;
   type: 'service' | 'part';
   name: string;
   price: number;
   sortOrder: number;
+  category?: PartCategory | null;
 }
 
 function mapFromDb(row: Record<string, unknown>): ServiceOption {
@@ -17,6 +20,7 @@ function mapFromDb(row: Record<string, unknown>): ServiceOption {
     name: row.name as string,
     price: (row.price as number) || 0,
     sortOrder: row.sort_order as number,
+    category: (row.category as PartCategory | null) || null,
   };
 }
 
@@ -44,7 +48,7 @@ export const serviceOptionsService = {
     return cachedOptions;
   },
 
-  async create(type: 'service' | 'part', name: string, price: number = 0): Promise<ServiceOption> {
+  async create(type: 'service' | 'part', name: string, price: number = 0, category?: PartCategory | null): Promise<ServiceOption> {
     const callerId = getCallerId();
     if (!callerId) throw new Error('Not authenticated');
 
@@ -53,13 +57,14 @@ export const serviceOptionsService = {
       p_type: type,
       p_name: name,
       p_price: price,
+      p_category: category || null,
     });
     if (error) throw new Error(error.message);
     invalidateCache();
     return mapFromDb(data);
   },
 
-  async update(id: string, name: string, price: number): Promise<ServiceOption> {
+  async update(id: string, name: string, price: number, category?: PartCategory | null): Promise<ServiceOption> {
     const callerId = getCallerId();
     if (!callerId) throw new Error('Not authenticated');
 
@@ -68,6 +73,7 @@ export const serviceOptionsService = {
       p_id: id,
       p_name: name,
       p_price: price,
+      p_category: category ?? null,
     });
     if (error) throw new Error(error.message);
     invalidateCache();

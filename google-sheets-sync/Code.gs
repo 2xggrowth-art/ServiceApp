@@ -49,8 +49,17 @@ var HEADERS = [
 ];
 
 function doPost(e) {
+  if (!e || !e.postData) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: 'No POST data received' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  return processData(e.postData.contents);
+}
+
+function processData(jsonString) {
   try {
-    var data = JSON.parse(e.postData.contents);
+    var data = JSON.parse(jsonString);
     var records = Array.isArray(data) ? data : [data];
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var updated = 0;
@@ -201,8 +210,14 @@ function buildRow(r) {
   ];
 }
 
-// Health check
-function doGet() {
+// Handles both health check (no data param) and data sync (with data param).
+// Browser fetch with GET avoids the POST→GET redirect issue in Apps Script.
+function doGet(e) {
+  var dataParam = e && e.parameter && e.parameter.data;
+  if (dataParam) {
+    return processData(dataParam);
+  }
+  // Health check
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'BCH Sheets Sync active (upsert mode)' }))
     .setMimeType(ContentService.MimeType.JSON);
