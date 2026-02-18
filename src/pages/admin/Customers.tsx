@@ -150,6 +150,7 @@ export default function Customers() {
                           <div>
                             <div className="text-[15px] font-bold leading-snug">{job.customerName}</div>
                             <div className="text-[13px] text-grey-muted mt-0.5">{job.customerPhone || 'No phone'} · {job.bike}</div>
+                            {job.serviceId && <div className="text-[10px] font-mono font-bold text-blue-600/70 mt-0.5">{job.serviceId}</div>}
                           </div>
                           <div className="flex items-center gap-2">
                             <StatusBadge status={job.status} />

@@ -46,6 +46,7 @@ export default function Parts() {
               <div>
                 <div className="font-bold text-sm">{job.customerName}</div>
                 <div className="text-xs text-grey-muted">{job.bike}</div>
+                {job.serviceId && <div className="text-[10px] font-mono text-blue-600/70 mt-0.5">{job.serviceId}</div>}
               </div>
               <StatusBadge status={job.status} />
             </div>

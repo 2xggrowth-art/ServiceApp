@@ -217,6 +217,7 @@ export default function Dashboard() {
                     )}
                   </div>
                   <div className="text-[11px] text-grey-muted truncate">
+                    {job.serviceId && <span className="font-mono font-bold text-blue-600/70 mr-1">{job.serviceId}</span>}
                     {job.customerName} • {STATUS_LABELS[job.status]}
                   </div>
                 </div>

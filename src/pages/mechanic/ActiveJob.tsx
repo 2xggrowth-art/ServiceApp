@@ -152,6 +152,9 @@ export default function ActiveJob() {
       <Card className="p-4! text-center space-y-2.5">
         <h3 className="font-bold text-lg text-black">{activeJob.bike}</h3>
         <p className="text-sm text-black/50">{activeJob.customerName}</p>
+        {activeJob.serviceId && (
+          <p className="text-xs font-mono font-bold text-blue-600/70">{activeJob.serviceId}</p>
+        )}
 
         {/* Service type */}
         {jobServices.length > 0 && (

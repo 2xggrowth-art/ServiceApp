@@ -20,7 +20,7 @@ interface PartLine {
 }
 
 export default function CheckIn() {
-  const { createJob, mechanics, showToast, serviceList, partsList, serviceItems, partsItems } = useApp();
+  const { createJob, mechanics, jobs, showToast, serviceList, partsList, serviceItems, partsItems } = useApp();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -231,8 +231,18 @@ export default function CheckIn() {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-lg font-extrabold tracking-tight">New Check-In</h3>
-        <p className="text-xs text-grey-muted mt-0.5">Register a new service job</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-extrabold tracking-tight">New Check-In</h3>
+            <p className="text-xs text-grey-muted mt-0.5">Register a new service job</p>
+          </div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-right">
+            <div className="text-[10px] text-blue-600/70 font-medium">Next Service ID</div>
+            <div className="text-xs font-mono font-bold text-blue-600">
+              BCH-{new Date().toISOString().split('T')[0].replace(/-/g, '')}-{String(jobs.filter(j => j.date === new Date().toISOString().split('T')[0]).length + 1).padStart(3, '0')}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Photos — gallery grid style */}
