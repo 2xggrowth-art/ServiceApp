@@ -20,6 +20,7 @@
 // ============================================================
 
 var HEADERS = [
+  'Service ID',
   'Job ID',
   'Date',
   'Customer Name',
@@ -111,9 +112,10 @@ function ensureHeaders(sheet) {
     for (var i = 1; i <= HEADERS.length; i++) {
       sheet.setColumnWidth(i, 130);
     }
-    sheet.setColumnWidth(3, 180);  // Customer Name
-    sheet.setColumnWidth(5, 180);  // Bike
-    sheet.setColumnWidth(14, 250); // Parts Used
+    sheet.setColumnWidth(1, 180);  // Service ID
+    sheet.setColumnWidth(4, 180);  // Customer Name
+    sheet.setColumnWidth(6, 180);  // Bike
+    sheet.setColumnWidth(15, 250); // Parts Used
   }
 }
 
@@ -139,13 +141,13 @@ function upsertRow(sheet, r) {
   }
 }
 
-// Search column A (Job ID) for a matching ID
+// Search column B (Job ID) for a matching ID
 function findRowByJobId(sheet, jobId) {
   if (!jobId) return -1;
   var lastRow = sheet.getLastRow();
   if (lastRow <= 1) return -1; // Only header or empty
 
-  var ids = sheet.getRange(1, 1, lastRow, 1).getValues();
+  var ids = sheet.getRange(1, 2, lastRow, 1).getValues(); // column B = Job ID
   for (var i = 1; i < ids.length; i++) { // skip header row
     if (String(ids[i][0]) === jobId) {
       return i + 1; // 1-based row number
@@ -170,6 +172,7 @@ function buildRow(r) {
   var services = Array.isArray(r.services) ? r.services.join(', ') : '';
 
   return [
+    r.serviceId || '',
     r.id || '',
     r.date || '',
     r.customerName || '',
