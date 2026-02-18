@@ -20,7 +20,7 @@ function mapFromDb(row: Record<string, unknown>): ServiceOption {
     name: row.name as string,
     price: (row.price as number) || 0,
     sortOrder: row.sort_order as number,
-    category: (row.category as PartCategory | null) || null,
+    category: (row.category as PartCategory | null) || (row.type === 'part' ? 'non_electric' : null),
   };
 }
 

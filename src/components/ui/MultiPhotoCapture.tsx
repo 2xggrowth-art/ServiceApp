@@ -164,7 +164,7 @@ export default function MultiPhotoCapture({
       <input
         ref={cameraRef}
         type="file"
-        accept="image/*,video/*"
+        accept="image/*"
         capture="environment"
         onChange={handleChange}
         className="hidden"

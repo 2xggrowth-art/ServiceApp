@@ -9,6 +9,11 @@
 ALTER TABLE public.service_options
   ADD COLUMN IF NOT EXISTS category TEXT DEFAULT NULL;
 
+-- Backfill: set all existing parts to 'non_electric'
+UPDATE public.service_options
+SET category = 'non_electric'
+WHERE type = 'part' AND category IS NULL;
+
 -- ============================================================
 -- Update CREATE RPC to accept category
 -- ============================================================
