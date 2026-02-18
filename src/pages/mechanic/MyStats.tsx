@@ -143,8 +143,6 @@ export default function MyStats() {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
         <StatCard icon="🔧" value={totalJobs} label={`Jobs (${PERIOD_LABELS[period]})`} />
-        <StatCard icon="⏰" value={`${Math.round(onTimeRate)}%`} label="On-Time Rate" />
-        <StatCard icon="⚡" value={avgTime ? `${Math.round(avgTime)}m` : '—'} label="Avg Time" />
         <StatCard icon="💰" value={formatCurrency(incentive)} label="Incentive" />
       </div>
 
@@ -181,8 +179,6 @@ export default function MyStats() {
       <h3 className="text-sm font-bold text-grey-muted uppercase tracking-wider">Performance Summary</h3>
       <Card>
         <div className="space-y-3">
-          <SummaryRow label="Average completion time" value={avgTime ? `${Math.round(avgTime)}m` : '—'} />
-          <SummaryRow label="On-time rate" value={`${Math.round(onTimeRate)}%`} />
           <SummaryRow label="Total revenue generated" value={formatCurrency(revenue)} />
           <SummaryRow label="Parts cost" value={formatCurrency(stats?.partsCost ?? 0)} />
         </div>

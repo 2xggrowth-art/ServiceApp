@@ -883,8 +883,8 @@ export function AppProvider({ children }) {
   const getMechanicJobs = useCallback((mechanicId: string) => {
     const today = getToday();
     return jobs.filter(j => {
-      // Unassigned jobs for today — available to pick
-      const isUnassigned = j.status === STATUS.RECEIVED && !j.mechanicId && j.date === today;
+      // Unassigned jobs — available to pick (today + carryover from past days)
+      const isUnassigned = j.status === STATUS.RECEIVED && !j.mechanicId && j.date <= today;
       // Jobs assigned to this mechanic (today + carryover)
       const isMyJob = j.mechanicId === mechanicId && (j.date === today || (j.date < today && j.status !== STATUS.COMPLETED));
       return isUnassigned || isMyJob;

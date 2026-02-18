@@ -6,7 +6,7 @@ import { formatCurrency } from '../../lib/helpers';
 import { haptic } from '../../lib/haptic';
 import Card from '../../components/ui/Card';
 import PhotoGallery from '../../components/ui/PhotoGallery';
-import { Wrench, Package, Volume2 } from 'lucide-react';
+import { Wrench, Package, Volume2, AlertTriangle, Lightbulb, Pause, Play, CheckCircle } from 'lucide-react';
 
 /** Parse photoBefore field: could be JSON array of URLs or single URL */
 function parsePhotoUrls(val?: string): string[] {
@@ -99,9 +99,9 @@ export default function ActiveJob() {
   if (!activeJob) {
     return (
       <div className="text-center py-20" style={{ fontFamily: 'var(--font-mechanic)' }}>
-        <div className="text-6xl mb-4">🔧</div>
-        <p className="text-xl font-bold text-black">No Active Job</p>
-        <p className="text-base text-black/60 mt-2">Start one from Today tab</p>
+        <Wrench size={40} className="mx-auto mb-3 text-gray-300" />
+        <p className="text-lg font-bold text-black">No Active Job</p>
+        <p className="text-sm text-black/50 mt-1">Start one from Today tab</p>
       </div>
     );
   }
@@ -127,31 +127,31 @@ export default function ActiveJob() {
 
   return (
     <div className="space-y-5" style={{ fontFamily: 'var(--font-mechanic)' }}>
-      {/* Parts Pending Banner — bold and unmissable */}
+      {/* Parts Pending Banner */}
       {isPartsPending && (
-        <div className="bg-orange-action/10 border-2 border-orange-action rounded-2xl p-4">
+        <div className="bg-orange-action/5 border border-orange-action/30 rounded-xl p-4">
           <div className="flex items-center gap-3 mb-3">
-            <span className="text-3xl">🔧</span>
+            <AlertTriangle size={20} className="text-orange-action shrink-0" />
             <div className="flex-1">
-              <p className="text-base font-bold text-black">Waiting for Parts</p>
-              <p className="text-sm text-black/70 mt-0.5">
+              <p className="text-sm font-bold text-black">Waiting for Parts</p>
+              <p className="text-xs text-black/50 mt-0.5">
                 {(activeJob.partsNeeded || []).map(p => p.name).join(', ') || 'Parts requested'}
               </p>
             </div>
           </div>
           <button
             onClick={handleResumeFromParts}
-            className="w-full min-h-14 bg-green-success text-white text-lg font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform"
+            className="w-full py-3 bg-green-success text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-transform"
           >
-            ▶ RESUME WORK
+            <Play size={16} fill="white" /> RESUME WORK
           </button>
         </div>
       )}
 
-      {/* Job Info — high contrast */}
-      <Card className="p-5! text-center space-y-3">
-        <h3 className="font-bold text-xl text-black">{activeJob.bike}</h3>
-        <p className="text-base text-black/70">{activeJob.customerName}</p>
+      {/* Job Info */}
+      <Card className="p-4! text-center space-y-2.5">
+        <h3 className="font-bold text-lg text-black">{activeJob.bike}</h3>
+        <p className="text-sm text-black/50">{activeJob.customerName}</p>
 
         {/* Service type */}
         {jobServices.length > 0 && (
@@ -159,9 +159,9 @@ export default function ActiveJob() {
             {jobServices.map((svc, i) => {
               const svcPrice = serviceItems?.find(s => s.name === svc)?.price || 0;
               return (
-                <div key={`svc-${i}`} className="bg-blue-primary text-white px-5 py-2.5 rounded-2xl">
-                  <span className="text-lg font-bold">{svc}</span>
-                  {svcPrice > 0 && <span className="text-base ml-2 opacity-80">₹{svcPrice}</span>}
+                <div key={`svc-${i}`} className="bg-blue-primary/10 text-blue-primary px-4 py-2 rounded-lg">
+                  <span className="text-sm font-bold">{svc}</span>
+                  {svcPrice > 0 && <span className="text-xs ml-1.5 opacity-70">₹{svcPrice}</span>}
                 </div>
               );
             })}
@@ -169,14 +169,14 @@ export default function ActiveJob() {
         )}
 
         {activeJob.issue && (
-          <div className="bg-gray-100 rounded-2xl p-3">
-            <p className="text-sm text-black/80 font-medium">"{activeJob.issue}"</p>
+          <div className="bg-gray-50 rounded-lg p-3">
+            <p className="text-xs text-black/60 leading-relaxed">"{activeJob.issue}"</p>
           </div>
         )}
 
         {laborCharge > 0 && (
-          <div className="inline-block bg-green-success/10 border-2 border-green-success/30 rounded-2xl px-6 py-3">
-            <span className="text-2xl font-bold text-green-success">{formatCurrency(laborCharge)}</span>
+          <div className="inline-block bg-green-success/10 border border-green-success/20 rounded-lg px-4 py-2">
+            <span className="text-lg font-bold text-green-success">{formatCurrency(laborCharge)}</span>
           </div>
         )}
       </Card>
@@ -202,23 +202,23 @@ export default function ActiveJob() {
           <h4 className="text-sm font-bold text-black uppercase tracking-wider mb-3 flex items-center gap-2">
             <Package size={16} /> Parts (from check-in)
           </h4>
-          <div className="border-2 border-gray-200 rounded-2xl overflow-hidden">
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="divide-y divide-gray-100">
               {checkinPartsBill.map(p => (
-                <div key={p.name} className="flex items-center justify-between px-4 py-3">
+                <div key={p.name} className="flex items-center justify-between px-3 py-2.5">
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-bold text-black">{p.name}</span>
-                    {p.price > 0 && <span className="text-sm text-black/50 ml-2">₹{p.price}</span>}
+                    <span className="text-xs font-bold text-black">{p.name}</span>
+                    {p.price > 0 && <span className="text-xs text-black/40 ml-1.5">₹{p.price}</span>}
                   </div>
-                  {p.qty > 1 && <span className="text-sm text-black/60 mx-2">x{p.qty}</span>}
-                  {p.price > 0 && <span className="text-base font-bold text-black">₹{p.price * p.qty}</span>}
+                  {p.qty > 1 && <span className="text-xs text-black/50 mx-2">x{p.qty}</span>}
+                  {p.price > 0 && <span className="text-xs font-bold text-black">₹{p.price * p.qty}</span>}
                 </div>
               ))}
             </div>
             {checkinPartsTotal > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 bg-orange-action/10 border-t-2 border-gray-200">
-                <span className="text-sm font-bold text-black">Parts Total</span>
-                <span className="text-base font-bold text-orange-action">₹{checkinPartsTotal}</span>
+              <div className="flex items-center justify-between px-3 py-2.5 bg-orange-action/5 border-t border-gray-200">
+                <span className="text-xs font-bold text-black">Parts Total</span>
+                <span className="text-xs font-bold text-orange-action">₹{checkinPartsTotal}</span>
               </div>
             )}
           </div>
@@ -237,7 +237,7 @@ export default function ActiveJob() {
           value={partsSearch}
           onChange={e => setPartsSearch(e.target.value)}
           placeholder="Type to search parts..."
-          className="w-full px-4 py-3 border-2 border-gray-300 rounded-2xl text-sm font-medium text-black bg-white focus:border-blue-primary focus:outline-none"
+          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-black bg-white focus:border-blue-primary focus:outline-none"
         />
 
         {/* Matching parts — only show when typing */}
@@ -252,8 +252,8 @@ export default function ActiveJob() {
                   <button
                     key={name}
                     onClick={() => { handleTapPart(name); setPartsSearch(''); }}
-                    className={`px-4 py-2.5 rounded-2xl text-sm font-bold cursor-pointer active:scale-95 transition-transform
-                      ${added ? 'bg-blue-primary text-white' : 'bg-white border-2 border-gray-300 text-black active:bg-gray-100'}`}
+                    className={`px-3 py-2 rounded-lg text-xs font-bold cursor-pointer active:scale-[0.98] transition-transform
+                      ${added ? 'bg-blue-primary text-white' : 'bg-white border border-gray-200 text-black active:bg-gray-50'}`}
                   >
                     {name}{added ? ` ×${added.qty}` : ''}
                   </button>
@@ -267,15 +267,15 @@ export default function ActiveJob() {
 
         {/* Added parts summary — always visible */}
         {partsUsed.length > 0 && (
-          <div className="mt-3 border-2 border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-100">
+          <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100">
             {partsUsed.map((p, i) => (
-              <div key={i} className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm font-bold text-black">{p.name} ×{p.qty}</span>
-                <div className="flex items-center gap-3">
-                  {p.price > 0 && <span className="text-sm font-bold text-black/60">₹{p.price * p.qty}</span>}
+              <div key={i} className="flex items-center justify-between px-3 py-2.5">
+                <span className="text-xs font-bold text-black">{p.name} x{p.qty}</span>
+                <div className="flex items-center gap-2">
+                  {p.price > 0 && <span className="text-xs font-bold text-black/50">₹{p.price * p.qty}</span>}
                   <button
                     onClick={() => removePart(i)}
-                    className="min-w-8 min-h-8 bg-red-urgent/10 text-red-urgent text-sm font-bold rounded-lg flex items-center justify-center cursor-pointer active:bg-red-urgent/20"
+                    className="w-6 h-6 bg-red-urgent/10 text-red-urgent text-xs font-bold rounded flex items-center justify-center cursor-pointer active:bg-red-urgent/20"
                   >
                     ✕
                   </button>
@@ -286,12 +286,12 @@ export default function ActiveJob() {
         )}
       </div>
 
-      {/* Action Buttons — chunky grid */}
-      <div className="grid grid-cols-3 gap-3">
-        <ActionBtn icon="🔧" label="Need Parts" onClick={handleNeedParts} />
-        <ActionBtn icon="💡" label="Need Help" onClick={() => { haptic(); showToast('Help request sent!', 'info'); }} />
+      {/* Action Buttons */}
+      <div className="grid grid-cols-3 gap-2">
+        <ActionBtn icon={<Wrench size={18} />} label="Need Parts" onClick={handleNeedParts} />
+        <ActionBtn icon={<Lightbulb size={18} />} label="Need Help" onClick={() => { haptic(); showToast('Help request sent!', 'info'); }} />
         <ActionBtn
-          icon={isPaused ? '▶️' : '⏸️'}
+          icon={isPaused ? <Play size={18} /> : <Pause size={18} />}
           label={isPaused ? 'Resume' : 'Pause'}
           active={isPaused}
           onClick={async () => {
@@ -307,27 +307,27 @@ export default function ActiveJob() {
         />
       </div>
 
-      {/* COMPLETE — the biggest button on screen */}
+      {/* COMPLETE */}
       <button
         onClick={handleComplete}
-        className="w-full min-h-18 bg-green-success text-white text-xl font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform shadow-lg"
+        className="w-full py-4 bg-green-success text-white text-base font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-transform shadow-sm"
       >
-        ✅ COMPLETE JOB
+        <CheckCircle size={20} /> COMPLETE JOB
       </button>
 
     </div>
   );
 }
 
-function ActionBtn({ icon, label, onClick, active }: { icon: string; label: string; onClick: () => void; active?: boolean }) {
+function ActionBtn({ icon, label, onClick, active }: { icon: React.ReactNode; label: string; onClick: () => void; active?: boolean }) {
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center gap-1.5 min-h-18 rounded-2xl border-2 transition-colors cursor-pointer active:scale-[0.97]
-        ${active ? 'bg-orange-action/10 border-orange-action' : 'bg-white border-gray-300 active:bg-gray-100'}`}
+      className={`flex flex-col items-center justify-center gap-1.5 py-3 rounded-xl border transition-colors cursor-pointer active:scale-[0.98]
+        ${active ? 'bg-orange-action/5 border-orange-action/30 text-orange-action' : 'bg-white border-gray-200 text-black/60 active:bg-gray-50'}`}
     >
-      <span className="text-2xl">{icon}</span>
-      <span className="text-xs font-bold text-black">{label}</span>
+      {icon}
+      <span className="text-[11px] font-bold">{label}</span>
     </button>
   );
 }

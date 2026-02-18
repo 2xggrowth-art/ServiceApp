@@ -19,8 +19,8 @@ export default function QualityCheck() {
   if (isDataLoading) {
     return (
       <div className="text-center py-16">
-        <div className="w-8 h-8 border-3 border-purple-qc border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm text-grey-muted">Loading QC jobs...</p>
+        <div className="w-6 h-6 border-2 border-purple-qc border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-xs text-grey-muted">Loading QC jobs...</p>
       </div>
     );
   }
@@ -72,9 +72,8 @@ export default function QualityCheck() {
       {/* QC Jobs List */}
       {qcJobs.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-5xl mb-3">✅</div>
           <p className="text-grey-muted font-medium">No bikes pending QC</p>
-          <p className="text-xs text-grey-light mt-1">All quality checks are done!</p>
+          <p className="text-xs text-grey-light mt-1">All quality checks are done</p>
         </div>
       ) : (
         qcJobs.map(job => (

@@ -33,13 +33,13 @@ export default memo(function JobCard({ job, mechanic, actions, dimCompleted = fa
     isDone ? 'border-l-green-success' : 'border-l-gray-300';
 
   return (
-    <div className={`bg-white rounded-2xl p-4 shadow-card border-l-[5px] border-2 border-gray-100 ${borderColor} ${dimCompleted && isDone ? 'opacity-60' : ''}`}>
-      {/* Top badges row — prominent day + urgent */}
+    <div className={`bg-white rounded-xl p-4 shadow-sm border-l-4 border border-gray-100 ${borderColor} ${dimCompleted && isDone ? 'opacity-50' : ''}`}>
+      {/* Top badges row */}
       {(isCarryover || isUrgent) && (
-        <div className="flex items-center gap-1.5 mb-2.5">
+        <div className="flex items-center gap-1.5 mb-2">
           {isUrgent && <PriorityBadge />}
           {isCarryover && (
-            <span className={`px-2.5 py-1 rounded-xl text-xs font-extrabold ${
+            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
               dayNum >= 3 ? 'bg-red-urgent text-white' : 'bg-amber-500 text-white'
             }`}>
               Day {dayNum}
@@ -48,51 +48,51 @@ export default memo(function JobCard({ job, mechanic, actions, dimCompleted = fa
         </div>
       )}
 
-      {/* Header — bold, high contrast */}
-      <div className="flex items-start justify-between mb-3">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-2">
         <div className="flex items-center gap-3">
           {job.photoBefore ? (
-            <img src={job.photoBefore.startsWith('[') ? (JSON.parse(job.photoBefore)[0] || '') : job.photoBefore} alt="" loading="lazy" className="w-12 h-12 rounded-xl object-cover ring-2 ring-gray-200" />
+            <img src={job.photoBefore.startsWith('[') ? (JSON.parse(job.photoBefore)[0] || '') : job.photoBefore} alt="" loading="lazy" className="w-10 h-10 rounded-lg object-cover ring-1 ring-gray-200" />
           ) : (
-            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-xl">🏍️</div>
+            <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center text-sm text-gray-400 font-bold">
+              {job.bike?.[0] || 'B'}
+            </div>
           )}
           <div>
             <h4 className="font-bold text-sm text-black leading-tight">{job.customerName}</h4>
-            <p className="text-xs text-black/60 mt-0.5 font-medium">{job.bike}</p>
+            <p className="text-xs text-black/50 mt-0.5">{job.bike}</p>
           </div>
         </div>
         <ServiceBadge type={job.serviceType} />
       </div>
 
       {/* Meta row */}
-      <div className="flex flex-wrap items-center gap-3 text-xs text-black/60 font-medium mb-3">
-        {!hideTime && <span className="flex items-center gap-1">⏰ {formatTime(job.estimatedMin)}</span>}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-black/50 mb-2">
+        {!hideTime && <span>{formatTime(job.estimatedMin)}</span>}
         {mechanic && (
           <span className="flex items-center gap-1.5">
-            <span className="w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center text-white" style={{ backgroundColor: mechanic.color || '#6b7280' }}>
+            <span className="w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center text-white" style={{ backgroundColor: mechanic.color || '#6b7280' }}>
               {mechanic.name?.[0]}
             </span>
             {mechanic.name}
           </span>
         )}
         {job.status === STATUS.PARTS_PENDING && job.partsNeeded && (
-          <span className="text-orange-action font-bold">🔧 {job.partsNeeded.map(p => p.name).join(', ')}</span>
+          <span className="text-orange-action font-bold">{job.partsNeeded.map(p => p.name).join(', ')}</span>
         )}
       </div>
 
       {/* Issue */}
       {job.issue && (
-        <p className="text-xs text-black/60 mb-3 leading-relaxed line-clamp-2 font-medium">{job.issue}</p>
+        <p className="text-xs text-black/50 mb-2 leading-relaxed line-clamp-2">{job.issue}</p>
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-2 border-t-2 border-gray-100">
-        <div className="flex items-center gap-2 mt-1.5">
-          <StatusBadge status={job.status} />
-        </div>
+      <div className="flex items-center pt-2 border-t border-gray-100">
+        <StatusBadge status={job.status} />
       </div>
 
-      {/* Full-width actions slot */}
+      {/* Actions slot */}
       {actions && (
         <div className="mt-3">{actions}</div>
       )}

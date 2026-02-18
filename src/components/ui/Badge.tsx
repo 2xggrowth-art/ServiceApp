@@ -50,8 +50,8 @@ export function ServiceBadge({ type }: { type: string }) {
 
 export function PriorityBadge() {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-extrabold bg-red-urgent/10 text-red-urgent border border-red-urgent/20">
-      🚨 URGENT
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-urgent/10 text-red-urgent border border-red-urgent/20 uppercase tracking-wide">
+      URGENT
     </span>
   );
 }

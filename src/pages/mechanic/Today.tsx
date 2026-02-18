@@ -2,10 +2,21 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { STATUS } from '../../lib/constants';
-import { getToday } from '../../lib/helpers';
+import { getToday, formatCurrency } from '../../lib/helpers';
 import { haptic } from '../../lib/haptic';
 import JobCard from '../../components/ui/JobCard';
 import Card from '../../components/ui/Card';
+import { Wrench, Clock, RefreshCw, CheckCircle, Play, Eye, ChevronDown, Ban, ArrowRightLeft } from 'lucide-react';
+import type { Job } from '../../types';
+
+/** Parse photoBefore field: could be JSON array of URLs or single URL */
+function parsePhotoUrls(val?: string): string[] {
+  if (!val) return [];
+  if (val.startsWith('[')) {
+    try { return JSON.parse(val); } catch { return []; }
+  }
+  return [val];
+}
 
 export default function Today() {
   const { getMechanicJobs, currentMechanicId, pickJob, startJob, reassignJob, showToast, jobs, mechanics } = useApp();
@@ -32,11 +43,11 @@ export default function Today() {
     });
   const pendingJobs = [...pendingAssigned, ...unassignedJobs];
 
-  // Takeover: other mechanics' active jobs
+  // Takeover: only other mechanics' actively worked jobs (in_progress / parts_pending)
   const takeoverJobs = jobs.filter(j =>
     j.mechanicId &&
     j.mechanicId !== currentMechanicId &&
-    !doneStatuses.includes(j.status) &&
+    [STATUS.IN_PROGRESS, STATUS.PARTS_PENDING].includes(j.status) &&
     (j.date === today || j.date < today)
   );
 
@@ -51,7 +62,7 @@ export default function Today() {
   // Check if mechanic already has an active job (blocks starting another)
   const hasActiveJob = myJobs.some(j => j.mechanicId === currentMechanicId && j.status === STATUS.IN_PROGRESS);
 
-  // --- Collapsible section state (In Progress open by default) ---
+  // --- Collapsible section state ---
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     inProgress: true,
     pending: true,
@@ -59,6 +70,13 @@ export default function Today() {
     done: false,
   });
   const toggle = (key: string) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+
+  // Expanded job detail
+  const [expandedJobId, setExpandedJobId] = useState<string | number | null>(null);
+  const toggleExpand = (jobId: string | number) => {
+    haptic();
+    setExpandedJobId(prev => prev === jobId ? null : jobId);
+  };
 
   // --- Handlers ---
   const handlePick = async (jobId) => {
@@ -94,15 +112,15 @@ export default function Today() {
     }
   };
 
-  /** Full-width chunky action buttons */
+  /** Full-width action buttons */
   const getActions = (job) => {
     if (job.mechanicId && job.mechanicId !== currentMechanicId) {
       return (
         <button
           onClick={() => handleTakeover(job.id)}
-          className="w-full min-h-14 bg-orange-action text-white text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform"
+          className="w-full py-3 bg-orange-action text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-transform"
         >
-          🔄 TAKE OVER
+          <ArrowRightLeft size={16} /> TAKE OVER
         </button>
       );
     }
@@ -110,16 +128,16 @@ export default function Today() {
       return hasActiveJob ? (
         <button
           disabled
-          className="w-full min-h-14 bg-gray-300 text-gray-500 text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed"
+          className="w-full py-3 bg-gray-200 text-gray-400 text-sm font-bold rounded-xl flex items-center justify-center gap-2 cursor-not-allowed"
         >
-          🚫 Finish active job first
+          <Ban size={16} /> Finish active job first
         </button>
       ) : (
         <button
           onClick={() => handlePick(job.id)}
-          className="w-full min-h-16 bg-green-success text-white text-lg font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform shadow-md"
+          className="w-full py-3.5 bg-green-success text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-transform shadow-sm"
         >
-          🎯 PICK & START
+          <Play size={16} fill="white" /> PICK & START
         </button>
       );
     }
@@ -127,16 +145,16 @@ export default function Today() {
       return hasActiveJob ? (
         <button
           disabled
-          className="w-full min-h-14 bg-gray-300 text-gray-500 text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed"
+          className="w-full py-3 bg-gray-200 text-gray-400 text-sm font-bold rounded-xl flex items-center justify-center gap-2 cursor-not-allowed"
         >
-          🚫 Finish active job first
+          <Ban size={16} /> Finish active job first
         </button>
       ) : (
         <button
           onClick={() => handleStart(job.id)}
-          className="w-full min-h-16 bg-blue-primary text-white text-lg font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform shadow-md"
+          className="w-full py-3.5 bg-blue-primary text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-transform shadow-sm"
         >
-          ▶ START JOB
+          <Play size={16} fill="white" /> START JOB
         </button>
       );
     }
@@ -144,9 +162,9 @@ export default function Today() {
       return (
         <button
           onClick={() => { haptic(); navigate('/mechanic/active'); }}
-          className="w-full min-h-14 bg-blue-primary text-white text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform"
+          className="w-full py-3 bg-blue-primary text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-transform"
         >
-          ⏰ VIEW ACTIVE JOB
+          <Eye size={16} /> VIEW ACTIVE JOB
         </button>
       );
     }
@@ -154,42 +172,62 @@ export default function Today() {
       return (
         <button
           onClick={() => { haptic(); navigate('/mechanic/active'); }}
-          className="w-full min-h-14 bg-orange-action text-white text-base font-bold rounded-2xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.97] transition-transform"
+          className="w-full py-3 bg-orange-action text-white text-sm font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-transform"
         >
-          🔧 VIEW JOB
+          <Wrench size={16} /> VIEW JOB
         </button>
       );
     }
     return null;
   };
 
+  /** Render a job card — expandable for pending/takeover */
+  const renderExpandableJob = (job: Job, showMechanic?: boolean) => {
+    const isExpanded = expandedJobId === job.id;
+    const isPending = [STATUS.RECEIVED, STATUS.ASSIGNED].includes(job.status);
+    const isTakeover = job.mechanicId && job.mechanicId !== currentMechanicId;
+    const canExpand = isPending || isTakeover;
+    const mech = showMechanic ? mechanics.find(m => m.id === job.mechanicId) : undefined;
+
+    return (
+      <div key={job.id}>
+        <div
+          onClick={canExpand ? () => toggleExpand(job.id) : undefined}
+          className={canExpand ? 'cursor-pointer' : ''}
+        >
+          <JobCard job={job} hideTime mechanic={mech} actions={!isExpanded ? getActions(job) : undefined} />
+        </div>
+
+        {isExpanded && (
+          <div className="bg-gray-50 border border-gray-200 border-t-0 rounded-b-xl -mt-2 pt-4 px-4 pb-4 space-y-3">
+            <JobDetailPanel job={job} />
+            <div className="pt-1">{getActions(job)}</div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4" style={{ fontFamily: 'var(--font-mechanic)' }}>
       {/* Progress bar */}
-      <Card className="!p-5">
-        <div className="flex justify-between items-end mb-3">
-          <span className="text-base font-bold text-black">Today's Progress</span>
-          <span className="text-2xl font-bold text-black">{done}/{total}</span>
+      <Card className="p-4!">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-xs font-bold text-black/50 uppercase tracking-wide">Today's Progress</span>
+          <span className="text-sm font-bold text-black">{done}<span className="text-black/30">/{total}</span></span>
         </div>
-        <div className="h-8 bg-gray-200 rounded-2xl overflow-hidden relative">
+        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
           <div
-            className="h-full bg-green-success rounded-2xl transition-all duration-700 flex items-center justify-end pr-3"
-            style={{ width: `${Math.max(pct, 8)}%` }}
-          >
-            {pct > 15 && (
-              <span className="text-white text-sm font-bold">{pct}%</span>
-            )}
-          </div>
-          {pct <= 15 && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-black">{pct}%</span>
-          )}
+            className="h-full bg-green-success rounded-full transition-all duration-700"
+            style={{ width: `${Math.max(pct, 4)}%` }}
+          />
         </div>
       </Card>
 
       {/* 1. In Progress */}
       {inProgressJobs.length > 0 && (
         <CollapsibleSection
-          emoji="🔧" label="In Progress" count={inProgressJobs.length}
+          icon={<Wrench size={16} />} label="In Progress" count={inProgressJobs.length}
           color="text-blue-primary" open={openSections.inProgress} onToggle={() => toggle('inProgress')}
         >
           {inProgressJobs.map(job => (
@@ -198,35 +236,30 @@ export default function Today() {
         </CollapsibleSection>
       )}
 
-      {/* 2. Pending */}
+      {/* 2. Pending — expandable */}
       {pendingJobs.length > 0 && (
         <CollapsibleSection
-          emoji="⏳" label="Pending" count={pendingJobs.length}
+          icon={<Clock size={16} />} label="Pending" count={pendingJobs.length}
           color="text-orange-action" open={openSections.pending} onToggle={() => toggle('pending')}
         >
-          {pendingJobs.map(job => (
-            <JobCard key={job.id} job={job} hideTime actions={getActions(job)} />
-          ))}
+          {pendingJobs.map(job => renderExpandableJob(job))}
         </CollapsibleSection>
       )}
 
-      {/* 3. Takeover */}
+      {/* 3. Takeover — expandable */}
       {takeoverJobs.length > 0 && (
         <CollapsibleSection
-          emoji="🔄" label="Takeover" count={takeoverJobs.length}
+          icon={<RefreshCw size={16} />} label="Takeover" count={takeoverJobs.length}
           color="text-orange-action" open={openSections.takeover} onToggle={() => toggle('takeover')}
         >
-          {takeoverJobs.map(job => {
-            const mech = mechanics.find(m => m.id === job.mechanicId);
-            return <JobCard key={job.id} job={job} hideTime mechanic={mech} actions={getActions(job)} />;
-          })}
+          {takeoverJobs.map(job => renderExpandableJob(job, true))}
         </CollapsibleSection>
       )}
 
       {/* 4. Done */}
       {doneJobs.length > 0 && (
         <CollapsibleSection
-          emoji="✅" label="Done" count={doneJobs.length}
+          icon={<CheckCircle size={16} />} label="Done" count={doneJobs.length}
           color="text-green-success" open={openSections.done} onToggle={() => toggle('done')}
         >
           {doneJobs.map(job => (
@@ -238,32 +271,109 @@ export default function Today() {
       {/* Empty state */}
       {myJobs.length === 0 && (
         <div className="text-center py-20">
-          <div className="text-6xl mb-4">✅</div>
-          <p className="text-xl font-bold text-black">All Done!</p>
-          <p className="text-base text-black/60 mt-2">Check back later for new jobs</p>
+          <CheckCircle size={48} className="mx-auto mb-3 text-green-success" />
+          <p className="text-lg font-bold text-black">All Done!</p>
+          <p className="text-sm text-black/50 mt-1">Check back later for new jobs</p>
         </div>
       )}
     </div>
   );
 }
 
-function CollapsibleSection({ emoji, label, count, color, open, onToggle, children }: {
-  emoji: string; label: string; count: number; color: string;
+/** Expanded detail panel showing job info */
+function JobDetailPanel({ job }: { job: Job }) {
+  const photos = parsePhotoUrls(job.photoBefore);
+  const audioUrl = job.photoAfter || '';
+  const services = job.services || [];
+  const checkinParts = job.checkinParts || [];
+
+  return (
+    <>
+      {/* Services */}
+      {services.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {services.map((svc, i) => (
+            <span key={i} className="bg-blue-primary/10 text-blue-primary px-3 py-1 rounded-lg text-xs font-bold">{svc}</span>
+          ))}
+        </div>
+      )}
+
+      {/* Issue */}
+      {job.issue && (
+        <div className="bg-white rounded-lg p-3 border border-gray-200">
+          <p className="text-[10px] font-bold text-black/40 uppercase tracking-wide mb-1">Issue</p>
+          <p className="text-sm text-black font-medium leading-relaxed">{job.issue}</p>
+        </div>
+      )}
+
+      {/* Labor charge */}
+      {job.laborCharge != null && job.laborCharge > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold text-black/40 uppercase tracking-wide">Charge:</span>
+          <span className="text-sm font-bold text-green-success">{formatCurrency(job.laborCharge)}</span>
+        </div>
+      )}
+
+      {/* Check-in parts */}
+      {checkinParts.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-black/40 uppercase tracking-wide mb-1.5">Parts (check-in)</p>
+          <div className="flex flex-wrap gap-1.5">
+            {checkinParts.map((p, i) => (
+              <span key={i} className="bg-orange-action/10 text-orange-action px-2.5 py-1 rounded-lg text-[11px] font-bold">{p}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Photos */}
+      {photos.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-black/40 uppercase tracking-wide mb-1.5">Photos</p>
+          <div className="flex gap-2 overflow-x-auto">
+            {photos.map((url, i) => (
+              <img key={i} src={url} alt="" loading="lazy" className="w-16 h-16 rounded-lg object-cover ring-1 ring-gray-200 shrink-0" />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Voice note */}
+      {audioUrl && (
+        <div>
+          <p className="text-[10px] font-bold text-black/40 uppercase tracking-wide mb-1.5">Voice Note</p>
+          <audio controls className="w-full h-10" preload="metadata">
+            <source src={audioUrl} />
+          </audio>
+        </div>
+      )}
+
+      {/* Hint if no extra details */}
+      {!job.issue && services.length === 0 && checkinParts.length === 0 && photos.length === 0 && !audioUrl && (
+        <p className="text-xs text-black/30 text-center py-2">No additional details</p>
+      )}
+    </>
+  );
+}
+
+function CollapsibleSection({ icon, label, count, color, open, onToggle, children }: {
+  icon: React.ReactNode; label: string; count: number; color: string;
   open: boolean; onToggle: () => void; children: React.ReactNode;
 }) {
   return (
     <div>
       <button
         onClick={onToggle}
-        className={`w-full flex items-center justify-between text-base font-bold ${color} cursor-pointer py-2 bg-transparent border-none outline-none`}
+        className={`w-full flex items-center justify-between text-sm font-bold uppercase tracking-wide ${color} cursor-pointer py-2 bg-transparent border-none outline-none`}
       >
         <span className="flex items-center gap-2">
-          <span className="text-xl">{emoji}</span> {label} ({count})
+          {icon} {label}
+          <span className="text-xs font-bold bg-black/5 px-2 py-0.5 rounded-md">{count}</span>
         </span>
-        <span className={`text-lg transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+        <ChevronDown size={18} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="mt-3 space-y-3">
+        <div className="mt-2 space-y-3">
           {children}
         </div>
       )}
