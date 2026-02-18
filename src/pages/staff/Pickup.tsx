@@ -95,9 +95,10 @@ export default function Pickup() {
               <div>
                 <div className="font-bold text-sm">{job.customerName}</div>
                 <div className="text-xs text-grey-muted">{job.bike}</div>
+                {job.serviceId && <div className="text-[10px] font-mono text-blue-600/70 mt-0.5">{job.serviceId}</div>}
               </div>
               <div className="flex items-center gap-2">
-                <WhatsAppButton phone={job.customerPhone} stage="ready" customerName={job.customerName} bike={job.bike} quote={job.totalCost} />
+                <WhatsAppButton phone={job.customerPhone} stage="ready" customerName={job.customerName} bike={job.bike} quote={job.totalCost} serviceId={job.serviceId} />
                 <ServiceBadge type={job.serviceType} />
               </div>
             </div>

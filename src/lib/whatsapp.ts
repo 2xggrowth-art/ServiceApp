@@ -7,15 +7,23 @@ export type WhatsAppStage = 'received' | 'in_progress' | 'quality_check' | 'read
 
 const FOOTER = `\n\nFor all service related queries, call us at 9844223174.\n— Bharath Cycle Hub`;
 
-const TEMPLATES: Record<WhatsAppStage, (name: string, bike: string, quote?: string) => string> = {
-  received: (name, bike, quote) =>
-    `Hi ${name}, your ${bike} has been received at Bharath Cycle Hub.${quote ? ` Estimated cost: ${quote}.` : ''} We'll update you on the progress! 🚲${FOOTER}`,
-  in_progress: (name, bike, quote) =>
-    `Hi ${name}, work has started on your ${bike} at Bharath Cycle Hub.${quote ? ` Estimated cost: ${quote}.` : ''} We'll notify you once it's done! 🔧${FOOTER}`,
-  quality_check: (name, bike, quote) =>
-    `Hi ${name}, your ${bike} has passed quality check and is almost ready for pickup!${quote ? ` Total: ${quote}.` : ''} ✅${FOOTER}`,
-  ready: (name, bike, quote) =>
-    `Hi ${name}, your ${bike} is ready for pickup at Bharath Cycle Hub!${quote ? ` Total: ${quote}.` : ''} 🎉${FOOTER}`,
+interface TemplateParams {
+  name: string;
+  bike: string;
+  quote?: string;
+  serviceId?: string;
+  mechanicName?: string;
+}
+
+const TEMPLATES: Record<WhatsAppStage, (p: TemplateParams) => string> = {
+  received: (p) =>
+    `Hi ${p.name}, your ${p.bike} has been received at Bharath Cycle Hub.${p.serviceId ? ` Your Service ID: ${p.serviceId}.` : ''}${p.quote ? ` Estimated cost: ${p.quote}.` : ''} We'll update you on the progress! 🚲${FOOTER}`,
+  in_progress: (p) =>
+    `Hi ${p.name}, work has started on your ${p.bike}${p.mechanicName ? ` by ${p.mechanicName}` : ''} at Bharath Cycle Hub.${p.serviceId ? ` Service ID: ${p.serviceId}.` : ''}${p.quote ? ` Estimated cost: ${p.quote}.` : ''} We'll notify you once it's done! 🔧${FOOTER}`,
+  quality_check: (p) =>
+    `Hi ${p.name}, your ${p.bike} has passed quality check and is almost ready for pickup!${p.serviceId ? ` Service ID: ${p.serviceId}.` : ''}${p.quote ? ` Total: ${p.quote}.` : ''} ✅${FOOTER}`,
+  ready: (p) =>
+    `Hi ${p.name}, your ${p.bike} is ready for pickup at Bharath Cycle Hub!${p.serviceId ? ` Service ID: ${p.serviceId}.` : ''}${p.quote ? ` Total: ${p.quote}.` : ''} 🎉${FOOTER}`,
 };
 
 /** Clean phone number and add India country code */
@@ -33,11 +41,13 @@ export function buildWhatsAppUrl(
   stage: WhatsAppStage,
   customerName: string,
   bike: string,
-  quote?: number | null
+  quote?: number | null,
+  serviceId?: string,
+  mechanicName?: string,
 ): string {
   const normalized = normalizePhone(phone);
   const quoteStr = quote != null ? '₹' + quote.toLocaleString('en-IN') : undefined;
-  const message = TEMPLATES[stage](customerName, bike, quoteStr);
+  const message = TEMPLATES[stage]({ name: customerName, bike, quote: quoteStr, serviceId, mechanicName });
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
@@ -47,8 +57,10 @@ export function openWhatsApp(
   stage: WhatsAppStage,
   customerName: string,
   bike: string,
-  quote?: number | null
+  quote?: number | null,
+  serviceId?: string,
+  mechanicName?: string,
 ): void {
-  const url = buildWhatsAppUrl(phone, stage, customerName, bike, quote);
+  const url = buildWhatsAppUrl(phone, stage, customerName, bike, quote, serviceId, mechanicName);
   window.open(url, '_blank');
 }

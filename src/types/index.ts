@@ -46,6 +46,7 @@ export type { Bike } from './bike';
 
 export interface Job {
   id: string | number;
+  serviceId?: string;
   customerName: string;
   customerPhone?: string;
   customerId?: string | null;

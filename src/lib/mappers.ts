@@ -18,6 +18,7 @@ function ensureArray<T = string>(val: unknown): T[] {
 export function mapJobFromDb(row: Record<string, unknown>): Job {
   return {
     id: row.id as string,
+    serviceId: row.service_id as string | undefined,
     customerName: row.customer_name as string,
     customerPhone: row.customer_phone as string | undefined,
     customerId: row.customer_id as string | null | undefined,
@@ -56,6 +57,7 @@ export function mapJobFromDb(row: Record<string, unknown>): Job {
 /** Map App-side partial fields to DB column names for updates */
 export function mapJobToDb(fields: Record<string, unknown>): Record<string, unknown> {
   const mapped: Record<string, unknown> = {};
+  if ('serviceId' in fields) mapped.service_id = fields.serviceId;
   if ('mechanicId' in fields) mapped.mechanic_id = fields.mechanicId;
   if ('estimatedMin' in fields) mapped.estimated_min = fields.estimatedMin;
   if ('actualMin' in fields) mapped.actual_min = fields.actualMin;

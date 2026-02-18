@@ -89,7 +89,7 @@ export default function Customers() {
       showToast('No phone number for this customer', 'warning');
       return;
     }
-    openWhatsApp(job.customerPhone, stage, job.customerName, job.bike, job.totalCost);
+    openWhatsApp(job.customerPhone, stage, job.customerName, job.bike, job.totalCost, job.serviceId);
     showToast('WhatsApp opened!', 'success');
   };
 

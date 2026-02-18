@@ -209,7 +209,7 @@ export default function CheckIn() {
       showToast(`Checked in! ${mech?.name ? `Assigned to ${mech.name}` : 'Added to queue'}`, 'success');
       // Open WhatsApp to notify customer
       if (form.customerPhone) {
-        openWhatsApp(form.customerPhone, 'received', form.customerName, form.bike, form.totalCharge ? Number(form.totalCharge) : undefined);
+        openWhatsApp(form.customerPhone, 'received', form.customerName, form.bike, form.totalCharge ? Number(form.totalCharge) : undefined, job?.serviceId);
       }
       setForm({ customerName: '', customerPhone: '', customerId: '', bike: '', bikeId: '', serviceType: 'regular', totalCharge: '', issue: '', priority: 'standard' });
       setSelectedService(null);

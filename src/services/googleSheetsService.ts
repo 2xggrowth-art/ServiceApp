@@ -11,6 +11,7 @@ const ENABLED = Boolean(SHEETS_URL);
 
 export interface SheetJobPayload {
   id: string | number;
+  serviceId?: string;
   date: string;
   customerName: string;
   customerPhone?: string;
@@ -46,6 +47,7 @@ export function buildSheetPayload(job: Job, mechanics: Mechanic[]): SheetJobPayl
   const mechanic = mechanics.find(m => m.id === job.mechanicId);
   return {
     id: job.id,
+    serviceId: job.serviceId,
     date: job.date,
     customerName: job.customerName,
     customerPhone: job.customerPhone,

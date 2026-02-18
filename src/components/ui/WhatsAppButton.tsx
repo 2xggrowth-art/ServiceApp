@@ -6,6 +6,8 @@ interface WhatsAppButtonProps {
   customerName: string;
   bike: string;
   quote?: number | null;
+  serviceId?: string;
+  mechanicName?: string;
   size?: 'sm' | 'md';
 }
 
@@ -15,6 +17,8 @@ export default function WhatsAppButton({
   customerName,
   bike,
   quote,
+  serviceId,
+  mechanicName,
   size = 'sm',
 }: WhatsAppButtonProps) {
   if (!phone) return null;
@@ -27,7 +31,7 @@ export default function WhatsAppButton({
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        openWhatsApp(phone, stage, customerName, bike, quote);
+        openWhatsApp(phone, stage, customerName, bike, quote, serviceId, mechanicName);
       }}
       className={`${dim} rounded-full bg-[#25D366] flex items-center justify-center text-white hover:bg-[#1DA851] active:scale-95 transition-all cursor-pointer shadow-sm`}
       title="Notify on WhatsApp"

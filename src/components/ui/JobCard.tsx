@@ -61,6 +61,9 @@ export default memo(function JobCard({ job, mechanic, actions, dimCompleted = fa
           <div>
             <h4 className="font-bold text-sm text-black leading-tight">{job.customerName}</h4>
             <p className="text-xs text-black/50 mt-0.5">{job.bike}</p>
+            {job.serviceId && (
+              <p className="text-[10px] font-mono text-blue-600/70 mt-0.5">{job.serviceId}</p>
+            )}
           </div>
         </div>
         <ServiceBadge type={job.serviceType} />

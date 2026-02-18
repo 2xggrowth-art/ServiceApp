@@ -224,6 +224,34 @@ export const jobService = {
     return mapJobFromDb(data);
   },
 
+  // Search jobs by service ID, customer name, or phone
+  async searchJobs(query: string) {
+    if (!config.useSupabase) return [];
+    if (!query || query.trim().length < 2) return [];
+
+    const callerId = getCallerId();
+    if (callerId) {
+      const { data, error } = await supabase.rpc('app_search_jobs', {
+        p_caller_id: callerId,
+        p_query: query.trim(),
+      });
+      if (error) throw error;
+      return (data || []).map(mapJobFromDb);
+    }
+
+    // Fallback: direct query
+    const term = `%${query.trim()}%`;
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('*')
+      .or(`service_id.ilike.${term},customer_name.ilike.${term},customer_phone.ilike.${term}`)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
+    return (data || []).map(mapJobFromDb);
+  },
+
   // Get dashboard stats for a date
   async getDashboardStats(date = getToday()) {
     if (!config.useSupabase) return null;

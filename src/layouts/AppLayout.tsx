@@ -9,6 +9,7 @@ import SwitchMechanicFAB from '../components/mechanic/SwitchMechanicFAB';
 import { userService } from '../services/userService';
 import { useOfflineStatus } from '../hooks/useOfflineStatus';
 import { isNotificationSupported, getPermissionState, wasPermissionDismissed, dismissPermissionPrompt, requestPermission } from '../lib/notifications';
+import SearchBar from '../components/ui/SearchBar';
 import {
   LayoutDashboard, Users, UserCheck, Phone, Settings,
   CalendarDays, Timer, CalendarPlus, BarChart3,
@@ -247,6 +248,13 @@ export default function AppLayout() {
                 <Download size={16} />
               </button>
             )}
+
+            <SearchBar
+              variant={role === ROLES.STAFF ? 'light' : role === ROLES.MECHANIC ? 'blue' : 'dark'}
+              onSelectJob={(job) => {
+                showToast(`${job.serviceId || ''} — ${job.customerName} (${job.bike})`, 'info');
+              }}
+            />
 
             <button className={`relative w-9 h-9 flex items-center justify-center rounded-xl transition-colors cursor-pointer ${
               role === ROLES.STAFF ? 'bg-grey-bg hover:bg-grey-border text-grey-muted' : 'hover:bg-white/15'
