@@ -48,9 +48,9 @@ export default function Customers() {
   const stats = getDashboardStats();
   const { jobs } = stats;
 
-  // All sections open by default
+  // Sections collapsed by default
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    received: true, working: true, ready: true,
+    received: false, working: false, ready: false,
   });
 
   const toggleSection = (key: string) => {
