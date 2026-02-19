@@ -220,7 +220,7 @@ export default function CheckIn() {
       setAudioFile(null);
       setCustomerBikes([]);
       setCustomerFound(false);
-      navigate('/staff/queue');
+      navigate('/admin/assign');
     } catch (err) {
       console.error('[CheckIn] Error:', err);
       const msg = err instanceof Error ? err.message : 'Check-in failed';
